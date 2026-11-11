@@ -251,7 +251,7 @@ working on it and are not loaded by the shell.
     tools/load.sh                 # load the plugin on its own, unseen, and print anything it complains about
     tools/sheet.sh out.png 2 "--weather storm --hour 16 --flash 0.9" "--weather snow --hour 21 --windows two"
     tools/panel.sh out.png rain,night,tune   # draw the control panel offscreen, in a few states
-    tools/icon.py docs/icon.svg icon.ppm      # draw the icon again (see the top of the file)
+    tools/icon.py icon docs/icon.svg icon.ppm # draw the icon again, or `social` for the banner (see the top of the file)
     omarchy plugin validate .     # what `omarchy plugin add` will check
 
 `tools/dev-install.sh` is for while the code is changing. It puts the code
