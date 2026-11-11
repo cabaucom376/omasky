@@ -1,0 +1,4 @@
+# The shader baker, unpacked here where qt6-shadertools is not installed.
+.tools/
+__pycache__/
+*.pyc

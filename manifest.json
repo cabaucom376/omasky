@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "id": "omasky",
+  "name": "Omasky",
+  "version": "1.0.0",
+  "author": "chase",
+  "license": "MIT",
+  "description": "The weather moves in around your desktop as pixel art: your real windows step into a smaller frame under a live sky, with the sun and moon on the clock and clouds, rain, snow, hail, fog and heat from the real conditions, in the theme's colors.",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Omasky",
+    "description": "Shows the weather; click for the live sky, right click for its controls",
+    "category": "Info",
+    "allowMultiple": false,
+    "defaultSection": "centerEnd",
+    "defaults": {
+      "quality": "auto",
+      "shrink": 0.78,
+      "skyOpacity": 0.9,
+      "animate": true,
+      "showInfo": true,
+      "infoDetail": false,
+      "weather": true,
+      "dayNight": true,
+      "refreshMinutes": 15,
+      "unit": "auto"
+    },
+    "schema": [
+      {
+        "key": "quality",
+        "type": "string",
+        "label": "Quality (auto, low, medium, high, ultra)",
+        "defaultValue": "auto"
+      },
+      {
+        "key": "shrink",
+        "type": "number",
+        "label": "How much of the screen the windows keep",
+        "min": 0.4,
+        "max": 0.94,
+        "step": 0.01,
+        "defaultValue": 0.78
+      },
+      {
+        "key": "skyOpacity",
+        "type": "number",
+        "label": "Most the sky covers the wallpaper, in the worst weather",
+        "min": 0.3,
+        "max": 1,
+        "step": 0.05,
+        "defaultValue": 0.9
+      },
+      {
+        "key": "animate",
+        "type": "boolean",
+        "label": "Glide in and out",
+        "defaultValue": true
+      },
+      {
+        "key": "showInfo",
+        "type": "boolean",
+        "label": "Show the temperature and conditions in the corner of the sky",
+        "defaultValue": true
+      },
+      {
+        "key": "infoDetail",
+        "type": "boolean",
+        "label": "With it, how it feels, the wind, the humidity and the days ahead",
+        "defaultValue": false
+      },
+      {
+        "key": "weather",
+        "type": "boolean",
+        "label": "Show the weather: clouds, rain, snow, fog, wind and heat",
+        "defaultValue": true
+      },
+      {
+        "key": "dayNight",
+        "type": "boolean",
+        "label": "Show the day and night: sun, moon, stars and the sky's color by the hour",
+        "defaultValue": true
+      },
+      {
+        "key": "refreshMinutes",
+        "type": "integer",
+        "label": "Weather refresh (minutes)",
+        "min": 5,
+        "max": 180,
+        "step": 5,
+        "defaultValue": 15
+      },
+      {
+        "key": "unit",
+        "type": "string",
+        "label": "Temperature unit (auto, metric, imperial)",
+        "defaultValue": "auto"
+      }
+    ]
+  }
+}
