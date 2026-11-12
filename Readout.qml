@@ -72,6 +72,13 @@ Grid {
           : readout.service.location.name ? readout.service.location.name
           : (readout.service.forecastFailed && !readout.service.forecast ? readout.words.t("info.offline") : "")
       }
+      // With the hour set, the weather is that hour's forecast: said here,
+      // so it is not taken for now.
+      Note {
+        ink: readout.ink
+        glyph: "\uf017"
+        text: readout.service.mode === "live" ? readout.service.forecastNote : ""
+      }
       Note {
         ink: readout.ink
         visible: !readout.sky.isDay

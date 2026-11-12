@@ -768,6 +768,21 @@ Item {
   // Whether the hour has been set, by hand or over IPC, and is not the real one.
   readonly property bool clockPinned: (mode === "manual" && manual.hour >= 0) || (mode !== "demo" && (pinnedClock >= 0 || timelapse))
 
+  // The hour, as the panel's ruler sets it. In manual mode it is one more
+  // thing set by hand. Otherwise the sky stays live and goes to that hour
+  // of today, and the weather with it: what is forecast for then.
+  function setHour(hour) {
+    var h = Math.max(0, Math.min(23.99, Number(hour) || 0))
+    if (mode === "manual") {
+      setManual("hour", h)
+      return
+    }
+    if (!dayNight) setDayNight(true)
+    timelapse = false
+    pinnedClock = h * 3600000
+    if (mode === "demo") mode = previewCode >= 0 ? "preview" : "live"
+  }
+
   // Back to the real hour, leaving the rest as it is.
   function realTime() {
     if (mode === "manual" && manual.hour >= 0) {
@@ -803,15 +818,24 @@ Item {
   property double forecastAt: 0
   property bool forecastFailed: false
 
+  // Live, with the hour set (on the panel's ruler, with `clock`, or by the
+  // time lapse), the weather is the forecast for that hour of today rather
+  // than what it is doing now: the hour's own reading, or null where the
+  // forecast gives none near enough.
+  readonly property var hourReading: mode === "live" && clockPinned && forecast ? Model.readingAt(forecast, now) : null
+  // The reading the sky and the words are made from: that hour's, or the
+  // present one.
+  readonly property var reading: hourReading || forecast
+
   // What the sky is heading for, by mode.
   readonly property var targetWeather: mode === "manual" ? Model.manualWeather(manual)
     : mode === "demo" ? Model.weatherFromCode(Model.DEMO[demoStep].code, null, Model.DEMO[demoStep].wind || 16, 250,
                                               { temperature: Model.DEMO[demoStep].temperature, plain: true })
     : mode === "preview" ? Model.weatherFromCode(previewCode, null, previewWind !== null ? previewWind : 14, 250,
                                                  { temperature: previewTemperature, plain: true })
-    : forecast ? Model.weatherFromCode(forecast.code, forecast.cloudCover, forecast.windSpeed, forecast.windDirection,
-                                       { temperature: forecast.temperature, gusts: forecast.gusts, visibility: forecast.visibility,
-                                         coverLow: forecast.coverLow, coverMid: forecast.coverMid, coverHigh: forecast.coverHigh })
+    : reading ? Model.weatherFromCode(reading.code, reading.cloudCover, reading.windSpeed, reading.windDirection,
+                                      { temperature: reading.temperature, gusts: reading.gusts, visibility: reading.visibility,
+                                        coverLow: reading.coverLow, coverMid: reading.coverMid, coverHigh: reading.coverHigh })
     // Nothing known yet: a fair sky rather than a blank one.
     : Model.weatherFromCode(1, null, 8, 250)
   // What the scene is heading for: that, or with the weather switched off
@@ -827,7 +851,7 @@ Item {
   readonly property var temperature: mode === "manual" ? manual.temperature
     : mode === "demo" ? Model.DEMO[demoStep].temperature === undefined ? null : Model.DEMO[demoStep].temperature
     : mode === "preview" ? previewTemperature
-    : (forecast ? forecast.temperature : null)
+    : (reading ? reading.temperature : null)
   // How much the air shimmers, eased like the weather.
   property real heat: 0
 
@@ -1285,14 +1309,19 @@ Item {
     if (celsius === null || celsius === undefined) return ""
     return Commons.I18n.formatNumber(Math.round(fahrenheit ? Model.celsiusToFahrenheit(celsius) : celsius)) + "°"
   }
-  readonly property string feelsText: forecast ? degreesText(forecast.feels) : ""
+  readonly property string feelsText: reading ? degreesText(reading.feels) : ""
   readonly property string windText: {
-    if (!forecast || forecast.windSpeed === null || forecast.windSpeed === undefined) return ""
-    return fahrenheit ? Commons.I18n.formatNumber(Math.round(forecast.windSpeed * 0.621371)) + " mph"
-                      : Commons.I18n.formatNumber(Math.round(forecast.windSpeed)) + " km/h"
+    if (!reading || reading.windSpeed === null || reading.windSpeed === undefined) return ""
+    return fahrenheit ? Commons.I18n.formatNumber(Math.round(reading.windSpeed * 0.621371)) + " mph"
+                      : Commons.I18n.formatNumber(Math.round(reading.windSpeed)) + " km/h"
   }
-  readonly property string humidityText: forecast && forecast.humidity !== null && forecast.humidity !== undefined
-    ? Commons.I18n.formatNumber(Math.round(forecast.humidity)) + "%" : ""
+  readonly property string humidityText: reading && reading.humidity !== null && reading.humidity !== undefined
+    ? Commons.I18n.formatNumber(Math.round(reading.humidity)) + "%" : ""
+  // Said beside the weather when it is an hour's forecast, or an hour gone
+  // by, so that it is not taken for now.
+  readonly property bool forecastAhead: hourReading !== null && hourReading.at > wallNow
+  readonly property string forecastNote: hourReading
+    ? strings.t(forecastAhead ? "info.forecast" : "info.earlier").arg(clockText(hourReading.at)) : ""
   // Which day it is where the place is. It only changes at that place's
   // midnight, so what hangs off it is not worked out again every second.
   readonly property int placeDay: Model.placeDay(forecast, wallNow)
@@ -1525,6 +1554,8 @@ Item {
         hitch: root.hitch,
         condition: root.targetWeather.key,
         clock: root.mode === "demo" ? "demo" : root.timelapse ? "timelapse" : (root.pinnedClock >= 0 || (root.mode === "manual" && root.manual.hour >= 0) ? "pinned" : "live"),
+        // The hour whose forecast is on show, when the hour is set in live mode.
+        forecastFor: root.hourReading ? new Date(root.hourReading.at).toISOString() : null,
         night: root.night,
         // Sunrise and sunset as the sky has them today, in hours.
         daylight: (function() {

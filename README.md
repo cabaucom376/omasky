@@ -68,8 +68,9 @@ clock.
 
 In the panel:
 
-- **A live miniature of the sky**, and under it a ruler of the day: drag it
-  to set the hour.
+- **A live miniature of the sky**, and under it a ruler of the day, with
+  the rain and snow forecast for each hour hanging from it. Drag it and the
+  sky goes to that hour of today, with the weather forecast for it.
 - **The place** the weather is for. Press it to set a city; Auto goes back
   to wherever you are.
 - **Weather** and **Day & night**, each switched on its own.
@@ -90,7 +91,7 @@ In the panel:
     omarchy-shell omasky quality high      # auto, low, medium, high or ultra
     omarchy-shell omasky demo              # a day and a night in a minute and a half; again to stop
     omarchy-shell omasky preview storm     # try a condition: rain, snow, blizzard, fog, hail, heat, ...
-    omarchy-shell omasky clock 21:30       # pin the sky to an hour; "now" lets it run
+    omarchy-shell omasky clock 21:30       # the sky at that hour of today, with its forecast; "now" lets it run
     omarchy-shell omasky set precip 0.8    # a manual control: clouds, precip, fog, temperature, wind, hour, moon
     omarchy-shell omasky strike            # lightning, now
     omarchy-shell omasky live              # back to the real weather at the real time

@@ -736,4 +736,83 @@ test("on battery the quality comes down one level, and low stays low", () => {
   assert.ok(M.qualityFor(M.easedQuality("ultra")).pixel > M.qualityFor("ultra").pixel)
 })
 
+// A forecast with the hours in it: `count` of them from `from` (unix seconds).
+function hourly(from, count, fill) {
+  const cols = { time: [], weather_code: [], temperature_2m: [], apparent_temperature: [], relative_humidity_2m: [], precipitation: [],
+    precipitation_probability: [], cloud_cover: [], cloud_cover_low: [], cloud_cover_mid: [], cloud_cover_high: [],
+    wind_speed_10m: [], wind_direction_10m: [], wind_gusts_10m: [], visibility: [] }
+  for (let i = 0; i < count; i++) {
+    const h = Object.assign({ weather_code: 2, temperature_2m: 15, apparent_temperature: 14, relative_humidity_2m: 70, precipitation: 0,
+      precipitation_probability: 10, cloud_cover: 40, cloud_cover_low: 30, cloud_cover_mid: 10, cloud_cover_high: 0,
+      wind_speed_10m: 12, wind_direction_10m: 250, wind_gusts_10m: 25, visibility: 20000 }, fill ? fill(i) : {})
+    cols.time.push(from + i * 3600)
+    for (const k in h) cols[k].push(h[k])
+  }
+  return JSON.stringify({ utc_offset_seconds: 0, current: { weather_code: 1, temperature_2m: 17 }, hourly: cols })
+}
+
+test("the forecast asks for the hours, and reads them as it reads the present", () => {
+  const url = M.forecastUrl(38.72, -9.14)
+  assert.ok(/&hourly=weather_code,temperature_2m/.test(url) && /precipitation_probability/.test(url))
+  assert.ok(/&past_hours=24&forecast_hours=48/.test(url))
+  const from = 1794441600
+  const f = M.parseForecast(hourly(from, 30, i => i === 5 ? { weather_code: 63, precipitation: 2.4, precipitation_probability: 80, temperature_2m: 11 } : {}))
+  assert.strictEqual(f.hours.length, 30)
+  assert.strictEqual(f.hours[0].at, from * 1000)
+  assert.deepStrictEqual([f.hours[5].code, f.hours[5].precip, f.hours[5].chance, f.hours[5].temperature], [63, 2.4, 0.8, 11])
+  assert.strictEqual(f.hours[5].windSpeed, 12)
+  // No hours given is no hours, not a failure; and an hour with no code is left out.
+  assert.deepStrictEqual(M.parseForecast(JSON.stringify({ current: { weather_code: 1 } })).hours, [])
+  const holed = JSON.parse(hourly(from, 4))
+  holed.hourly.weather_code[2] = null
+  holed.hourly.precipitation[1] = "lots"
+  const g = M.parseForecast(JSON.stringify(holed))
+  assert.strictEqual(g.hours.length, 3)
+  assert.strictEqual(g.hours[1].precip, 0)
+})
+
+test("an hour's reading is the nearest hour given, and none when the forecast does not reach", () => {
+  const from = 1794441600
+  const f = M.parseForecast(hourly(from, 12, i => ({ temperature_2m: i })))
+  const at = h => from * 1000 + h * 3600000
+  assert.strictEqual(M.readingAt(f, at(3)).temperature, 3)
+  assert.strictEqual(M.readingAt(f, at(3.4)).temperature, 3)
+  assert.strictEqual(M.readingAt(f, at(3.6)).temperature, 4)
+  // An hour past either end is still that end; further than that is nothing.
+  assert.strictEqual(M.readingAt(f, at(11.9)).temperature, 11)
+  assert.strictEqual(M.readingAt(f, at(13.5)), null)
+  assert.strictEqual(M.readingAt(f, at(-2)), null)
+  assert.strictEqual(M.readingAt(null, at(3)), null)
+  assert.strictEqual(M.readingAt({}, at(3)), null)
+  // The sky is made from it the way it is from the present reading.
+  const r = M.readingAt(M.parseForecast(hourly(from, 3, () => ({ weather_code: 65, precipitation: 6 }))), at(1))
+  const w = M.weatherFromCode(r.code, r.cloudCover, r.windSpeed, r.windDirection, { temperature: r.temperature })
+  assert.ok(w.rain > 0.5 && w.key === "heavyRain")
+})
+
+test("the day's ruler gets what falls in each of its hours", () => {
+  const day = 1794441600000
+  // Hours are stamped at their end: the one stamped 15:00 is what fell from 14:00.
+  const f = M.parseForecast(hourly(day / 1000, 30, i => i === 15 ? { precipitation: 3, precipitation_probability: 90, weather_code: 63 }
+    : i === 23 ? { precipitation: 1, weather_code: 73, temperature_2m: -2 } : {}))
+  const strip = M.hourStrip(f, day)
+  assert.strictEqual(strip.length, 24)
+  assert.deepStrictEqual(strip[14], { amount: 3, chance: 0.9, snow: false })
+  assert.deepStrictEqual(strip[22], { amount: 1, chance: 0.1, snow: true })
+  assert.strictEqual(strip[3].amount, 0)
+  // A day the forecast only partly covers has gaps, and one it does not cover has nothing.
+  const late = M.hourStrip(f, day + 20 * 3600000)
+  assert.ok(late[2] !== null && late[23] === null)
+  assert.deepStrictEqual(M.hourStrip(f, day + 5 * 86400000), [])
+  assert.deepStrictEqual(M.hourStrip(null, day), [])
+  // A place whose hours fall on the half hour still lines up.
+  const half = M.parseForecast(hourly(day / 1000 + 1800, 26, i => i === 9 ? { precipitation: 2 } : {}))
+  assert.ok(M.hourStrip(half, day).some(e => e && e.amount === 2))
+  // How long a bar: nothing for nothing, something for drizzle, full by four millimetres.
+  assert.strictEqual(M.stripLength(0), 0)
+  assert.ok(M.stripLength(0.2) > 0.25 && M.stripLength(0.2) < 0.5)
+  assert.strictEqual(M.stripLength(8), 1)
+  assert.strictEqual(M.stripLength("x"), 0)
+})
+
 console.log("ok: " + ran + " tests")

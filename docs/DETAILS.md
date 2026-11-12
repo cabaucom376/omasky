@@ -129,8 +129,17 @@ From the top:
   on. **Auto** goes back to wherever this network is. It is Omarchy's own
   weather location, the one its weather widget uses, so the two agree.
 - **The day, as a ruler.** The twenty-four hours with the day lit between
-  sunrise and sunset and a needle at the hour. Drag it to set the hour;
-  **Real time** puts it back. The day is today's real one, with the sunrise
+  sunrise and sunset and a needle at the hour. Hanging from it is the
+  forecast: a bar under each hour in which something falls, longer the more
+  of it, fainter the less likely, pale where it is snow. **Drag it and the
+  sky goes to that hour of today, and the weather with it**: live, what is
+  shown is the forecast for the hour (or, for an hour gone by, what it was
+  doing then), with the temperature, the wind and the rest to match, and
+  the panel and the corner of the sky say so. **Real time** puts it back.
+  In manual mode the ruler sets the hour alone and the weather stays as
+  set. `omarchy-shell omasky clock 17:00` does the same from a terminal, and
+  `timelapse` runs the day's whole forecast through the sky in a minute.
+  The day is today's real one, with the sunrise
   and sunset the forecast gives, in every mode but the demo, so the sun and
   moon are in the same place at the same hour whether the sky is live or
   manual. The demo keeps a day of its own, half past six to half past
