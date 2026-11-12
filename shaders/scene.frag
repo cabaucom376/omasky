@@ -1258,15 +1258,19 @@ vec4 skyPass(vec2 p, vec2 cell) {
         }
     }
 
-    // Fireflies, on a warm, still, dry night: single lights, more of them
-    // toward the ground, each keeping to its own patch of air, wandering
-    // about in it and coming and going. Brightest, one is a small cross.
+    // Fireflies, on a warm, still, dry night: single lights down among the
+    // windows and along the ground, never up in the sky with the clouds,
+    // more of them the lower down. Each keeps to its own patch of air,
+    // wandering about in it and coming and going.
     if (DETAIL_1 && u.fireflies > 0.01) {
         useGrid(ART);
         float plot = floor(22.0 * K);
         vec2 home = floor(art / plot);
         vec2 fh = hash22(home + 31.0);
-        if (fh.x < u.fireflies * (0.22 + 0.5 * smoothstep(0.2, 0.85, p.y / SCENE.y))) {
+        // Where the patch is, measured down from the top of the desktop:
+        // none above it, and its wandering kept below it too.
+        float below = ((home.y + 0.5) * plot * ART - u.deck - plot * ART * 0.5) / max(SCENE.y - u.deck, 1.0);
+        if (below > 0.0 && fh.x < u.fireflies * (0.25 + 0.5 * smoothstep(0.0, 0.7, below))) {
             float ft = u.slowTime * (0.35 + 0.3 * fh.y);
             vec2 at = (home + 0.5) * plot + floor(plot * 0.32 * vec2(sin(ft + fh.x * 40.0), cos(ft * 0.8 + fh.y * 40.0)));
             float lit = smoothstep(0.35, 0.8, sin(u.slowTime * (1.1 + fh.y) + fh.x * 60.0));

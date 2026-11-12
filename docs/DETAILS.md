@@ -42,8 +42,8 @@ length, how it is kept smooth, and how to work on it.
 - **And now and then:** a rainbow when a shower is falling and the sun is
   low, arching over the windows from the side of the sky away from it; a
   ring round the moon through thin high cloud; a shooting star on a clear
-  night. **Fireflies** on a warm, still, dry night, low over the ground and
-  up the margins. And where the place is far enough from the equator,
+  night. **Fireflies** on a warm, still, dry night, down beside the windows
+  and along the ground, never up in the sky. And where the place is far enough from the equator,
   **the northern lights** (or the southern) on some clear nights: curtains
   across the top of the sky, in the theme's green and violet. They are
   never seen below about fifty degrees and are there most nights from the
