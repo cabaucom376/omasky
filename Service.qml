@@ -25,7 +25,7 @@ import "Model.js" as Model
 // where it was to where it now is, covering the real ones, which have
 // already jumped; then the stills are put away.
 //
-// It talks to the network only while it is showing: Omarchy's own location
+// It talks to the network only while it or its panel is showing: Omarchy's own location
 // lookup (unless a weather location is set) and Open-Meteo for the conditions.
 Item {
   id: root
@@ -120,10 +120,10 @@ Item {
   property real cycleShare: dayNight ? 1 : 0
   property real infoShare: showInfo ? 1 : 0
   property real detailShare: showInfo && infoDetail ? 1 : 0
-  Behavior on detailShare { enabled: root.mounted; NumberAnimation { duration: 320; easing.type: Easing.InOutQuad } }
-  Behavior on weatherShare { enabled: root.mounted; NumberAnimation { duration: 700; easing.type: Easing.InOutQuad } }
-  Behavior on cycleShare { enabled: root.mounted; NumberAnimation { duration: 900; easing.type: Easing.InOutQuad } }
-  Behavior on infoShare { enabled: root.mounted; NumberAnimation { duration: 320; easing.type: Easing.InOutQuad } }
+  Behavior on detailShare { enabled: root.watched; NumberAnimation { duration: 320; easing.type: Easing.InOutQuad } }
+  Behavior on weatherShare { enabled: root.watched; NumberAnimation { duration: 700; easing.type: Easing.InOutQuad } }
+  Behavior on cycleShare { enabled: root.watched; NumberAnimation { duration: 900; easing.type: Easing.InOutQuad } }
+  Behavior on infoShare { enabled: root.watched; NumberAnimation { duration: 320; easing.type: Easing.InOutQuad } }
   readonly property int refreshMinutes: Math.round(Model.clamp(setting("refreshMinutes", 15), 5, 180))
   readonly property string unit: String(setting("unit", "auto"))
 
@@ -195,6 +195,10 @@ Item {
 
   property bool active: false
   property bool mounted: false
+  // Somebody is looking: at the sky, or at the panel, which opens on its own
+  // too and has the sky in miniature. The clock runs and the weather is
+  // kept fresh for either.
+  readonly property bool watched: mounted || controlsOpen
   property bool staged: false
   property real presence: 0
   property bool reserve: false
@@ -598,14 +602,22 @@ Item {
     return at ? at.x : -1
   }
 
+  // The panel opens and closes on its own: with the sky up it sits in the
+  // sky, and with the sky down it is all there is, so settings can be
+  // changed without the scene. (When the sky leaves, the panel goes too.)
   function toggleControls(x) {
     controlsX = x
-    if (controlsOpen && active) {
-      controlsOpen = false
-      return
-    }
-    controlsOpen = true
-    show()
+    controlsOpen = !controlsOpen
+  }
+
+  // Opened with the sky down, its miniature starts from the sky as it is
+  // now, with the weather asked for if the last reading is old.
+  function wakePanel() {
+    if (mounted) return
+    wallNow = Date.now()
+    weather = targetWeather
+    wallpaperProbe.running = true
+    if (mode !== "demo" && Date.now() - forecastAt > 10 * Model.MINUTE) refresh()
   }
 
   // ------------------------------------------------------------------ mode
@@ -627,7 +639,7 @@ Item {
   property real demoHour: 5.5
   readonly property bool previewing: mode !== "live"
   // Leaving the demo for a mode that keeps the real day asks for it.
-  onModeChanged: if (active && mode !== "demo" && Date.now() - forecastAt > 10 * Model.MINUTE) refresh()
+  onModeChanged: if (watched && mode !== "demo" && Date.now() - forecastAt > 10 * Model.MINUTE) refresh()
 
   function goLive() {
     mode = "live"
@@ -636,7 +648,7 @@ Item {
     previewWind = null
     pinnedClock = -1
     timelapse = false
-    if (active && Date.now() - forecastAt > 10 * Model.MINUTE) refresh()
+    if (watched && Date.now() - forecastAt > 10 * Model.MINUTE) refresh()
   }
 
   function setDemo(on) {
@@ -766,7 +778,7 @@ Item {
   Timer {
     interval: 1000
     repeat: true
-    running: root.mounted && !root.timelapse
+    running: root.watched && !root.timelapse
     onTriggered: root.wallNow = Date.now()
   }
 
@@ -823,7 +835,10 @@ Item {
   readonly property string glyph: Model.glyphFor(targetWeather, night)
 
   function refresh() {
-    if (!active || forecastProc.running || geoProc.running) return
+    // For the sky, or for the panel open on its own. (Asked of the two
+    // themselves, not of `watched`: this is called from the handler of one
+    // of them changing, before a binding on them has caught up.)
+    if (!(mounted || controlsOpen) || forecastProc.running || geoProc.running) return
     if (!hasLocation) {
       geoProc.running = true
       return
@@ -848,7 +863,7 @@ Item {
   onLocationChanged: {
     // A new place: the old reading is for somewhere else.
     forecastAt = 0
-    if (active && mode !== "demo") Qt.callLater(refresh)
+    if (watched && mode !== "demo") Qt.callLater(refresh)
   }
 
   // --------------------------------------------------------------- the city
@@ -1014,7 +1029,10 @@ Item {
   }
 
   // Closing the panel, or the sky, closes the field with it.
-  onControlsOpenChanged: if (!controlsOpen && cityEditing) cancelCity()
+  onControlsOpenChanged: {
+    if (controlsOpen) wakePanel()
+    else if (cityEditing) cancelCity()
+  }
   onActiveChanged: if (!active && cityEditing) cancelCity()
 
   Process {
@@ -1057,14 +1075,14 @@ Item {
     interval: root.refreshMinutes * 60000
     repeat: true
     // By hand and in a preview too: the sunrise and sunset come with it.
-    running: root.active && root.mode !== "demo"
+    running: root.watched && root.mode !== "demo"
     onTriggered: root.refresh()
   }
 
   // One early second try, for a network that was not up yet.
   Timer {
     interval: 20000
-    running: root.active && root.mode !== "demo" && root.forecast === null
+    running: root.watched && root.mode !== "demo" && root.forecast === null
     onTriggered: root.refresh()
   }
 
@@ -1131,7 +1149,7 @@ Item {
   }
 
   FrameAnimation {
-    running: root.mounted
+    running: root.watched
     onTriggered: root.advance(frameTime)
   }
 
@@ -1542,6 +1560,10 @@ Item {
       readonly property var monitor: Hyprland.monitorFor(screen)
       readonly property int workspaceId: monitor && monitor.activeWorkspace ? monitor.activeWorkspace.id : -1
       readonly property bool focusedMonitor: Hyprland.focusedMonitor === monitor
+      // The panel on its own, on this screen: open while the sky is down.
+      readonly property bool panelAlone: root.controlsOpen && !root.mounted && focusedMonitor
+      // The surface in front is up: for the sky, or for the panel alone.
+      readonly property bool frontUp: root.mounted || panelAlone
       readonly property real hz: monitor && monitor.lastIpcObject && monitor.lastIpcObject.refreshRate ? Number(monitor.lastIpcObject.refreshRate) : 0
       onHzChanged: if (hz > 0 && (focusedMonitor || root.refreshHz <= 0)) root.refreshHz = hz
 
@@ -1949,20 +1971,22 @@ Item {
       PanelWindow {
         id: win
         screen: view.screen
-        anchors { top: true; left: true; bottom: root.mounted; right: root.mounted }
+        anchors { top: true; left: true; bottom: view.frontUp; right: view.frontUp }
         implicitWidth: 1
         implicitHeight: 1
         color: "transparent"
         exclusionMode: ExclusionMode.Ignore
-        // The pointer goes straight through to the windows, except on the
-        // control panel.
-        mask: root.staged && root.controlsOpen && view.focusedMonitor ? panelArea : nothing
+        // With the sky up, the pointer goes straight through to the windows,
+        // except on the control panel. With only the panel up, everything
+        // under the bar is this surface's, so that a click away from the
+        // panel closes it; the bar itself is left to the bar.
+        mask: view.panelAlone ? stageArea : (root.controlsOpen && view.focusedMonitor ? panelArea : nothing)
         WlrLayershell.namespace: "omasky"
         // A fullscreen window would cover the top layer.
-        WlrLayershell.layer: root.mounted && view.fullscreen ? WlrLayer.Overlay : WlrLayer.Top
+        WlrLayershell.layer: view.frontUp && view.fullscreen ? WlrLayer.Overlay : WlrLayer.Top
         // The keyboard is the windows'. The one time this surface takes it
         // is while a city is being typed into the panel.
-        WlrLayershell.keyboardFocus: root.cityEditing && root.staged && root.controlsOpen && view.focusedMonitor
+        WlrLayershell.keyboardFocus: root.cityEditing && root.controlsOpen && view.focusedMonitor
           ? (root.cityPrimed ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.Exclusive)
           : WlrKeyboardFocus.None
 
@@ -1971,14 +1995,18 @@ Item {
           id: panelArea
           item: panel
         }
+        Region {
+          id: stageArea
+          item: stage
+        }
 
         Item {
           id: stage
           // Under the bar, and nothing drawn here strays over it.
-          x: root.mounted ? view.origin.x : 0
-          y: root.mounted ? view.origin.y : 0
-          width: root.mounted ? view.areaWidth : 1
-          height: root.mounted ? view.areaHeight : 1
+          x: view.frontUp ? view.origin.x : 0
+          y: view.frontUp ? view.origin.y : 0
+          width: view.frontUp ? view.areaWidth : 1
+          height: view.frontUp ? view.areaHeight : 1
           clip: true
 
           // Frames this surface has put on screen: the scene's frame rate,
@@ -2004,7 +2032,10 @@ Item {
           // pixel, which is what compiles that shader for this surface too.
           Item {
             id: coverItem
-            anchors.fill: parent
+            // The whole stage while the sky is up; otherwise the one pixel,
+            // and that goes for when the surface is up for the panel alone.
+            width: root.mounted ? parent.width : 1
+            height: root.mounted ? parent.height : 1
             visible: root.cover || !root.mounted
             layer.enabled: root.cover && view.heat > 0.01
             layer.effect: ShaderEffect {
@@ -2238,7 +2269,9 @@ Item {
           // never on them; the shader leaves every window's own pixels
           // alone.
           ScenePass {
-            anchors.fill: parent
+            // As the cover is: the stage with the sky up, a pixel without.
+            width: root.mounted ? parent.width : 1
+            height: root.mounted ? parent.height : 1
             visible: root.qualityKnown
             // All of it is weather, and goes when the weather is switched off.
             opacity: Math.max(root.weatherAmount * root.weatherShare, 0.004)
@@ -2309,11 +2342,23 @@ Item {
             ink: view.look.ink
           }
 
-          // The control panel, under the bar icon that opened it.
+          // With only the panel up, a click anywhere away from it closes
+          // it, as it closes any menu. (With the sky up the pointer goes
+          // through to the windows instead: see the mask.)
+          MouseArea {
+            anchors.fill: parent
+            visible: view.panelAlone
+            acceptedButtons: Qt.AllButtons
+            onPressed: root.controlsOpen = false
+          }
+
+          // The control panel, under the bar icon that opened it. It is
+          // there whether the sky is up or not, and goes out with the sky
+          // when the sky is switched off.
           Controls {
             id: panel
-            visible: root.staged && root.controlsOpen && view.focusedMonitor
-            opacity: root.skyAmount
+            visible: root.controlsOpen && view.focusedMonitor
+            opacity: root.active || !root.mounted ? 1 : root.skyAmount
             service: root
             words: strings
             y: Style.space(10)

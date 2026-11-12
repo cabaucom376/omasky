@@ -86,5 +86,6 @@
   "panel.setCity": "Set a city",
   "panel.searchCity": "Search city",
   "panel.autoCity": "Auto",
-  "panel.noCity": "No place by that name"
+  "panel.noCity": "No place by that name",
+  "panel.hintAlone": "Click away to close · left click the bar icon brings up the sky"
 }

@@ -5,7 +5,7 @@
 #   tools/panel.sh <out.png> [scene[,scene...]]
 #
 # Scenes are states of the sky and the panel (tools/panel.qml lists them):
-# rain, night, snow, tune, dusk, storm, clear, noweather, nocycle, off, city;
+# rain, night, snow, tune, dusk, storm, clear, alone, noweather, nocycle, off, city;
 # and readout, readout-wide, readout-simple, readout-demo, which draw the
 # words in the corner of the sky instead of the panel. With more than one,
 # each is saved as <out>-<scene>.png. The panel is drawn in

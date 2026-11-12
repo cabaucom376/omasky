@@ -61,7 +61,7 @@ clock.
 | | |
 |---|---|
 | Click the bar icon | The sky, on and off |
-| Right click | The control panel |
+| Right click | The control panel, with the sky up or without it |
 | Middle click | Back to the real weather |
 
 <img src="docs/menu.png" alt="The control panel, folded and with the manual controls open" width="720">
@@ -114,12 +114,12 @@ Set on the bar widget, for example `omarchy bar set omasky shrink 0.7 --json`.
 
 ## Privacy
 
-Omasky uses the network only while the sky is showing. It asks
-`geo.omarchy.org` where you are, unless a city is set, and Open-Meteo for
-the conditions there, with coordinates rounded to about a kilometre. A city
-typed into the panel goes to Open-Meteo's place search and nowhere else. It
-is saved as Omarchy's own weather location, so Omarchy's weather widget
-follows it too.
+Omasky uses the network only while the sky or its control panel is
+showing. It asks `geo.omarchy.org` where you are, unless a city is set, and
+Open-Meteo for the conditions there, with coordinates rounded to about a
+kilometre. A city typed into the panel goes to Open-Meteo's place search
+and nowhere else. It is saved as Omarchy's own weather location, so
+Omarchy's weather widget follows it too.
 
 ## More
 

@@ -861,7 +861,8 @@ Rectangle {
           opacity: 0.45
           font.family: Style.font.family
           font.pixelSize: Style.font.caption
-          text: panel.words.t("panel.hint")
+          // With the sky down the panel is on its own, and closes like a menu.
+          text: panel.words.t(panel.service.active ? "panel.hint" : "panel.hintAlone")
         }
       }
     }

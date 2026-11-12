@@ -35,6 +35,7 @@ ShellRoot {
     dusk:  { code: 2, hour: 18.3, temperature: 21, mode: "demo", snowDepth: 0 },
     storm: { code: 95, hour: 13, temperature: 18, mode: "live", snowDepth: 0, flash: 0.7 },
     clear: { code: 0, hour: 11, temperature: 24, mode: "live", snowDepth: 0 },
+    alone: { code: 2, hour: 16, temperature: 19, mode: "live", snowDepth: 0, alone: true },
     noweather: { code: 63, hour: 20.5, temperature: 15, mode: "live", snowDepth: 0, weather: false, phase: 0.3 },
     nocycle: { code: 2, hour: 22, temperature: 15, mode: "live", snowDepth: 0, cycle: false, info: false, tune: true, auto: true },
     off: { code: 63, hour: 15.5, temperature: 15, mode: "live", snowDepth: 0, weather: false, cycle: false, info: false },
@@ -123,6 +124,8 @@ ShellRoot {
     readonly property bool forecastFailed: false
     readonly property bool qualityKnown: !shell.flat
     readonly property bool qualityAuto: shell.at.auto === true
+    // The sky is up; the `alone` scene is the panel opened without it.
+    readonly property bool active: shell.at.alone !== true
     readonly property var quality: Model.qualityFor(Quickshell.env("PANEL_QUALITY") || "high")
     readonly property real skyOpacity: 0.9
     readonly property real time: 37.4

@@ -110,6 +110,13 @@ And to have it in the Omarchy menu (Super+Space), add a row to
 
 ## The control panel
 
+A right click on the bar icon opens it, and another closes it. With the sky
+up it sits in the sky, and the windows under it stay yours. With the sky
+down it opens on its own, so settings can be changed without the scene: its
+miniature shows what the sky would be, and a click anywhere away from it
+closes it, as with any menu. A left click on the icon brings the sky up
+behind it.
+
 From the top:
 
 - **The sky, small.** A miniature of the sky as it is now, drawn by the same
