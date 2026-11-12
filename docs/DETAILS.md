@@ -293,6 +293,18 @@ milliseconds from the request to staging, first frame and the start of the
 glide; `glide` is frames drawn and the slowest one; `hitch` is the slowest
 frame of the last few seconds. The panel's manual controls show the same.
 
+## Languages
+
+The panel, the corner of the sky and the bar icon's tooltip follow the
+language picked under Omarchy's Setup > Language. The strings are in
+`i18n/`, one file to a language: English, Danish, German, Spanish, French,
+Italian, Japanese, Dutch, Polish, Portuguese, Swedish and Simplified
+Chinese. A language without a file, and any string a file leaves out, is
+shown in English. To add one, copy `i18n/en.json` to the language's code
+(`fi.json`, `pt-BR.json`) and translate the values; the test checks that
+every file has every string. Keep the weather presets' names short: they
+sit in small tiles.
+
 ## Working on it
 
 The repository is the plugin: `manifest.json` and the code are at the top,
@@ -306,6 +318,8 @@ working on it and are not loaded by the shell.
     tools/sheet.sh out.png 2 "--weather storm --hour 16 --flash 0.9" "--weather snow --hour 21 --windows two"
     tools/panel.sh out.png rain,night,tune   # draw the control panel offscreen, in a few states
     tools/icon.py icon docs/icon.svg icon.ppm # draw the icon again, or `social` for the banner (see the top of the file)
+    tools/shader-size.sh          # how big each compiled shader is, without building it on the GPU
+    tools/sounds.py               # make the rain, wind and thunder again
     omarchy plugin validate .     # what `omarchy plugin add` will check
 
 `tools/dev-load.sh` is for while the code is changing. It puts the code
