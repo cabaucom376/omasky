@@ -19,7 +19,7 @@
     "description": "Shows the weather; click for the live sky, right click for its controls",
     "category": "Info",
     "allowMultiple": false,
-    "defaultSection": "centerEnd",
+    "defaultSection": "center",
     "defaults": {
       "quality": "auto",
       "shrink": 0.78,
