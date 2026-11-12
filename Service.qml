@@ -589,6 +589,9 @@ Item {
     machineProbe.running = true
     wallpaperProbe.running = true
     barsProbe.running = true
+    // Where the bar ends, which the panel is placed under even when it is
+    // opened with the sky down.
+    Hyprland.refreshMonitors()
   }
 
   // ------------------------------------------------------------ the panel
@@ -622,6 +625,10 @@ Item {
   // now, with the weather asked for if the last reading is old.
   function wakePanel() {
     if (mounted) return
+    // Where the bar is: Hyprland's monitor reading is otherwise only asked
+    // for when the sky comes up, and without it the panel would open over
+    // the bar.
+    Hyprland.refreshMonitors()
     wallNow = Date.now()
     weather = targetWeather
     wallpaperProbe.running = true
