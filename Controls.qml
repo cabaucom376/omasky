@@ -680,8 +680,8 @@ Rectangle {
               { value: "demo", label: (panel.service.mode === "demo" ? "■ " : "▶ ") + panel.words.t("panel.demo") },
               { value: "manual", label: panel.words.t("panel.byHand") }
             ]
-            // By hand unfolds the hand controls; Live and Demo, which
-            // have no use for them, fold them away again.
+            // Manual brings up its controls, unfolded; Live and Demo,
+            // which have no use for them, take them away again.
             onPicked: function(value) {
               if (value === "live") {
                 panel.service.goLive()
@@ -717,9 +717,10 @@ Rectangle {
           }
         }
 
-        // By hand: every state the weather has. Touching anything here takes
-        // the sky off the real weather until Live is picked again.
+        // Manual: every state the weather has. It is here only while the
+        // mode is Manual; Live and Demo have no use for it.
         Column {
+          visible: panel.service.mode === "manual"
           width: parent.width
           spacing: Style.space(8)
 

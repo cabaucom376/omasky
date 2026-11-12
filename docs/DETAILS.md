@@ -125,7 +125,7 @@ From the top:
   **Real time** puts it back. The day is today's real one, with the sunrise
   and sunset the forecast gives, in every mode but the demo, so the sun and
   moon are in the same place at the same hour whether the sky is live or
-  set by hand. The demo keeps a day of its own, half past six to half past
+  manual. The demo keeps a day of its own, half past six to half past
   six.
 - **Two switches**, each on its own:
   - **Weather**: clouds, rain, snow, hail, fog, wind, heat, and what lies and
@@ -144,13 +144,14 @@ From the top:
     today's high and low; and in the top right corner the next four days,
     each with its weather, its high and its low. This is what Omarchy's own
     weather panel shows. The detail is the real weather, so in the demo or
-    with the sky set by hand only the days ahead are shown.
+    in manual mode only the days ahead are shown.
 - **Mode**: **Live** is the real weather at the real time. **Demo** is a day
   and a night in a minute and a half, with weather to suit each hour: dawn,
-  showers, a heat wave, a thunderstorm, sunset, snow, fog. **By hand** takes
-  the sky as it stands and keeps it until something is changed.
+  showers, a heat wave, a thunderstorm, sunset, snow, fog. **Manual** takes
+  the sky as it stands and keeps it until something is changed, and brings
+  up its controls at the bottom of the panel.
 - **Quality**: auto, low, medium, high or ultra (below).
-- **Set it by hand**, folded away until asked for: presets, then sliders for
+- **Manual controls**, there only while the mode is Manual: presets, then sliders for
   clouds, precipitation, temperature, fog, wind (either way) and the moon's
   phase, switches for thunder and hail, and a button to strike now. There is
   no rain or snow slider: precipitation says how hard, temperature says
@@ -179,7 +180,7 @@ From the top:
 Quality changes what a frame costs, not how many there are: the sky is
 drawn once for every frame the screen shows, so the screen's refresh rate is
 the ceiling at any setting, and low reaches it on less. The control panel's
-by-hand section shows the frames actually reaching the screen.
+manual controls show the frames actually reaching the screen.
 
 Ultra spends its extra on smoothness, on shapes and on depth, not on making
 the rain finer. The rain and snow nearest you stay as chunky as they are on
@@ -237,7 +238,7 @@ itself stops.
 `omarchy-shell omasky status` reports how the last entry went: `entry` is
 milliseconds from the request to staging, first frame and the start of the
 glide; `glide` is frames drawn and the slowest one; `hitch` is the slowest
-frame of the last few seconds. The panel's by-hand section shows the same.
+frame of the last few seconds. The panel's manual controls show the same.
 
 ## Working on it
 

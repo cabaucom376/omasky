@@ -1323,9 +1323,9 @@ Item {
       return root.controlsOpen ? "open" : "closed"
     }
 
-    // The panel with its debug section open.
+    // The panel in manual mode, with its controls open.
     function debug(): string {
-      root.seedManual()
+      root.holdManual()
       root.debugOpen = true
       if (!root.controlsOpen) root.controlsX = root.iconX()
       root.controlsOpen = true

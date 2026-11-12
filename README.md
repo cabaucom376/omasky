@@ -64,7 +64,7 @@ clock.
 | Right click | The control panel |
 | Middle click | Back to the real weather |
 
-<img src="docs/menu.png" alt="The control panel, folded and with the by-hand section open" width="720">
+<img src="docs/menu.png" alt="The control panel, folded and with the manual controls open" width="720">
 
 In the panel:
 
@@ -75,8 +75,8 @@ In the panel:
 - **Weather** and **Day & night**, each switched on its own.
 - **Corner info**: off, simple, or detailed, which adds how it feels, the
   wind, the humidity and a four-day forecast.
-- **Mode**: live, a demo of a whole day, or set by hand with a slider for
-  every part of the weather.
+- **Mode**: live, a demo of a whole day, or manual, with a slider for every
+  part of the weather.
 - **Quality**: auto, low, medium, high or ultra.
 
 ## From a terminal
@@ -90,7 +90,7 @@ In the panel:
     omarchy-shell omasky demo              # a day and a night in a minute and a half; again to stop
     omarchy-shell omasky preview storm     # try a condition: rain, snow, blizzard, fog, hail, heat, ...
     omarchy-shell omasky clock 21:30       # pin the sky to an hour; "now" lets it run
-    omarchy-shell omasky set precip 0.8    # a by-hand control: clouds, precip, fog, temperature, wind, hour, moon
+    omarchy-shell omasky set precip 0.8    # a manual control: clouds, precip, fog, temperature, wind, hour, moon
     omarchy-shell omasky strike            # lightning, now
     omarchy-shell omasky live              # back to the real weather at the real time
     omarchy-shell omasky status

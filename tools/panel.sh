@@ -14,7 +14,7 @@
 #
 #   PANEL_FLAT=1   leave the miniature sky out, so no shader is compiled
 #                  (on a slow GPU path a compile stalls the screen)
-#   PANEL_TUNE=1   unfold the by-hand section in every scene
+#   PANEL_TUNE=1   unfold the manual controls in every scene whose mode is manual
 #   PANEL_SCALE=2  the screen scale to draw at (default 1.25)
 set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
