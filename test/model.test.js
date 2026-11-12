@@ -936,4 +936,23 @@ test("the rain and the wind are as loud as there is of them, and snow is silent"
   assert.deepStrictEqual(M.soundLevels(null), { rain: 0, wind: 0 })
 })
 
+test("every language has every string, with the same blanks to fill", () => {
+  const fs = require("fs")
+  const dir = path.join(__dirname, "..", "i18n")
+  const english = JSON.parse(fs.readFileSync(path.join(dir, "en.json"), "utf8"))
+  const blanks = text => (String(text).match(/%\d/g) || []).sort().join(" ")
+  const files = fs.readdirSync(dir).filter(name => name.endsWith(".json") && name !== "en.json")
+  assert.ok(files.length >= 5, "catalogs: " + files.join(", "))
+  for (const name of files) {
+    const catalog = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"))
+    assert.deepStrictEqual(Object.keys(catalog).sort(), Object.keys(english).sort(), name + " has other keys than en.json")
+    for (const key in english) {
+      assert.ok(typeof catalog[key] === "string" && catalog[key].trim() !== "", name + ": " + key + " is empty")
+      assert.strictEqual(blanks(catalog[key]), blanks(english[key]), name + ": " + key)
+      // Nothing that a text field would take for markup.
+      assert.ok(!/[<>]/.test(catalog[key]), name + ": " + key)
+    }
+  }
+})
+
 console.log("ok: " + ran + " tests")
