@@ -124,7 +124,7 @@ ShellRoot {
     readonly property var weather: weatherOn ? targetWeather : Model.calmWeather()
     readonly property var temperature: shell.at.temperature
     property var manual: ({ cover: targetWeather.cover, precip: targetWeather.precip, fog: targetWeather.fog, thunder: targetWeather.thunder > 0.5,
-                            hail: false, wind: 16, temperature: shell.at.temperature, hour: mode === "manual" ? shell.at.hour : -1, phase: -1 })
+                            hail: false, aurora: shell.at.aurora === true, fireflies: false, wind: 16, temperature: shell.at.temperature, hour: mode === "manual" ? shell.at.hour : -1, phase: -1 })
     readonly property var sliders: manual
     readonly property double now: Model.startOfDay(Date.now()) + shell.at.hour * 3600000
     readonly property real hourNow: shell.at.hour

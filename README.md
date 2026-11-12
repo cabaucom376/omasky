@@ -96,7 +96,7 @@ In the panel:
     omarchy-shell omasky demo              # a day and a night in a minute and a half; again to stop
     omarchy-shell omasky preview storm     # try a condition: rain, snow, blizzard, fog, hail, heat, ...
     omarchy-shell omasky clock 21:30       # the sky at that hour of today, with its forecast; "now" lets it run
-    omarchy-shell omasky set precip 0.8    # a manual control: clouds, precip, fog, temperature, wind, hour, moon
+    omarchy-shell omasky set precip 0.8    # a manual control: clouds, precip, fog, temperature, wind, hour, moon, aurora, fireflies
     omarchy-shell omasky strike            # lightning, now
     omarchy-shell omasky live              # back to the real weather at the real time
     omarchy-shell omasky status

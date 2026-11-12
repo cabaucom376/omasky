@@ -42,7 +42,13 @@ length, how it is kept smooth, and how to work on it.
 - **And now and then:** a rainbow when a shower is falling and the sun is
   low, arching over the windows from the side of the sky away from it; a
   ring round the moon through thin high cloud; a shooting star on a clear
-  night.
+  night. **Fireflies** on a warm, still, dry night, low over the ground and
+  up the margins. And where the place is far enough from the equator,
+  **the northern lights** (or the southern) on some clear nights: curtains
+  across the top of the sky, in the theme's green and violet. They are
+  never seen below about fifty degrees and are there most nights from the
+  middle sixties up; a night either has them or does not, from dusk to
+  dawn. In manual mode both are switches, to be had anywhere.
 - **The weather is not drawn on your windows.** It lands on them, lies on
   them, hangs beside them and runs off them, but what is in a window is
   left as it is: no rain across it, no fog over it. The one thing that
@@ -201,7 +207,7 @@ From the top:
 | Pixel of rain, snow, stars, lightning | 5 | 4 | 4 | 4 |
 | Weather in front of the windows | no | yes | yes | yes |
 | Heat waves bend the background on a hot day | no | yes | yes | yes |
-| Hail, gusts, a rainbow, a moon ring, shooting stars | no | yes | yes | yes |
+| Hail, gusts, a rainbow, a moon ring, shooting stars, fireflies, the northern lights | no | yes | yes | yes |
 | Hail bouncing off windows, icicles, meltwater dripping | no | no | yes | yes |
 | Rain landing on windows, running off; snow piling on them | no | no | yes | yes |
 | A second sheet of rain and of snow | no | no | no | yes |
