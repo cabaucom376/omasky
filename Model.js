@@ -381,8 +381,35 @@ function parseForecast(raw) {
   }
   days.sort(function(a, b) { return a.day - b.day })
 
+  // The hours either side of now. Each is a reading shaped as the present
+  // one is, with when it is for, what falls in the hour up to it
+  // (millimetres) and the chance of that (0..1).
+  var hours = []
+  var hourly = data.hourly && typeof data.hourly === "object" ? data.hourly : {}
+  function column(name) { return Array.isArray(hourly[name]) ? hourly[name] : [] }
+  var stamps = column("time"), hc = column("weather_code"), ht = column("temperature_2m")
+  var hf = column("apparent_temperature"), hh = column("relative_humidity_2m")
+  var hp = column("precipitation"), hpp = column("precipitation_probability")
+  var hcc = column("cloud_cover"), hcl = column("cloud_cover_low"), hcm = column("cloud_cover_mid"), hch = column("cloud_cover_high")
+  var hws = column("wind_speed_10m"), hwd = column("wind_direction_10m"), hwg = column("wind_gusts_10m"), hv = column("visibility")
+  for (var n = 0; n < stamps.length && n < 120; n++) {
+    var hourAt = number(stamps[n], 1e9, 1e11), hourCode = number(hc[n], 0, 99)
+    if (hourAt === null || hourCode === null) continue
+    var chance = number(hpp[n], 0, 100)
+    hours.push({
+      at: hourAt * 1000, code: hourCode,
+      temperature: number(ht[n], -100, 70), feels: number(hf[n], -100, 70), humidity: number(hh[n], 0, 100),
+      precip: number(hp[n], 0, 500) || 0, chance: chance === null ? null : chance / 100,
+      cloudCover: number(hcc[n], 0, 100), coverLow: number(hcl[n], 0, 100), coverMid: number(hcm[n], 0, 100), coverHigh: number(hch[n], 0, 100),
+      windSpeed: number(hws[n], 0, 500), windDirection: number(hwd[n], 0, 360), gusts: number(hwg[n], 0, 500),
+      visibility: number(hv[n], 0, 1000000)
+    })
+  }
+  hours.sort(function(a, b) { return a.at - b.at })
+
   return {
     code: code,
+    hours: hours,
     temperature: number(current.temperature_2m, -100, 70),
     feels: number(current.apparent_temperature, -100, 70),
     humidity: number(current.relative_humidity_2m, 0, 100),
@@ -400,6 +427,61 @@ function parseForecast(raw) {
     sunrise: sunrise,
     sunset: sunset
   }
+}
+
+// The reading for an hour: of the hours the forecast gives, the one nearest
+// `when`, if there is one within the hour. It has the fields the present
+// reading has, so the sky is made from it the same way. Null when the
+// forecast does not reach that far.
+function readingAt(forecast, when) {
+  var hours = forecast && isList(forecast.hours) ? forecast.hours : []
+  var best = null, gap = 61 * MINUTE
+  for (var i = 0; i < hours.length; i++) {
+    var d = Math.abs(hours[i].at - when)
+    if (d < gap) {
+      best = hours[i]
+      gap = d
+    }
+  }
+  return best
+}
+
+// What falls through a day, an hour at a time, for drawing along the day's
+// ruler: twenty-four entries from `dayStart`, each {amount (millimetres in
+// that hour), chance (0..1, or null where none is given), snow} or null
+// where the forecast has nothing. An hour's fall is reported at the hour's
+// end, so each entry is read from the hour that closes it.
+function hourStrip(forecast, dayStart) {
+  var out = []
+  var any = false
+  for (var i = 0; i < 24; i++) {
+    var end = dayStart + (i + 1) * 60 * MINUTE
+    var hours = forecast && isList(forecast.hours) ? forecast.hours : []
+    var hit = null
+    for (var j = 0; j < hours.length; j++) {
+      if (Math.abs(hours[j].at - end) < 31 * MINUTE) {
+        hit = hours[j]
+        break
+      }
+    }
+    if (!hit) {
+      out.push(null)
+      continue
+    }
+    any = true
+    var snowing = (hit.code >= 71 && hit.code <= 77) || hit.code === 85 || hit.code === 86
+      || (hit.temperature !== null && hit.temperature <= 0.5 && hit.precip > 0)
+    out.push({ amount: hit.precip, chance: hit.chance, snow: snowing })
+  }
+  return any ? out : []
+}
+
+// How long a bar an hour's fall gets on that ruler, 0..1: a drizzle shows,
+// and four millimetres an hour is as long as it goes.
+function stripLength(amount) {
+  var mm = Number(amount)
+  if (!isFinite(mm) || mm <= 0.04) return 0
+  return 0.3 + 0.7 * smoothstep(0, 4, mm)
 }
 
 // weather.json and geo.omarchy.org share a shape: {name, latitude, longitude}.
@@ -434,6 +516,13 @@ function forecastUrl(latitude, longitude) {
     + ",cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high"
     + ",wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility"
     + "&daily=sunrise,sunset,weather_code,temperature_2m_max,temperature_2m_min"
+    // The hours: a day back, so the whole of today is covered whenever it is
+    // asked, and two ahead. Each as the present reading is, with what falls.
+    + "&hourly=weather_code,temperature_2m,apparent_temperature,relative_humidity_2m"
+    + ",precipitation,precipitation_probability"
+    + ",cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high"
+    + ",wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility"
+    + "&past_hours=24&forecast_hours=48"
     + "&past_days=1&forecast_days=5&timeformat=unixtime&timezone=auto"
 }
 
@@ -1442,6 +1531,7 @@ if (typeof module !== "undefined") {
     flashAt: flashAt, glyphFor: glyphFor, parseClock: parseClock, startOfDay: startOfDay,
     steadySky: steadySky, dayMarks: dayMarks, calmWeather: calmWeather, dayEvents: dayEvents,
     forecastDays: forecastDays, placeDay: placeDay, forecastFrom: forecastFrom,
+    readingAt: readingAt, hourStrip: hourStrip, stripLength: stripLength,
     geocodeUrl: geocodeUrl, parseGeocoding: parseGeocoding,
     dayLight: dayLight, dayBand: dayBand,
     celsiusToFahrenheit: celsiusToFahrenheit, usesFahrenheit: usesFahrenheit,

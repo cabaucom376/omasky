@@ -426,6 +426,19 @@ Rectangle {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(4)
 
+          // Over the hour, when what is shown is that hour's forecast and
+          // not the weather now.
+          Text {
+            anchors.right: parent.right
+            visible: panel.service.hourReading !== null
+            textFormat: Text.PlainText
+            text: panel.words.t(panel.service.forecastAhead ? "panel.forecast" : "panel.earlier").toUpperCase()
+            color: panel.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 1.2
+          }
+
           Text {
             anchors.right: parent.right
             textFormat: Text.PlainText
@@ -508,7 +521,7 @@ Rectangle {
       Item {
         id: ruler
         width: parent.width
-        height: Style.space(36)
+        height: Style.space(36) + strip.height
 
         readonly property real inset: panel.pad
         readonly property real span: width - inset * 2
@@ -519,6 +532,11 @@ Rectangle {
         // by the same sunrise and sunset, wherever the place is.
         readonly property double dayStart: Model.startOfDay(panel.service.now)
         readonly property var light: Model.dayBand(dayStart, panel.service.sunrises, panel.service.sunsets, 144)
+        // What is forecast to fall in each hour of it (the demo's day is
+        // its own, and has no forecast).
+        readonly property var falls: panel.service.mode !== "demo" ? Model.hourStrip(panel.service.forecast, dayStart) : []
+        readonly property color rainTone: Model.toHex(panel.service.palette.rain)
+        readonly property color snowTone: Model.toHex(panel.service.palette.snow)
 
         opacity: panel.service.dayNight ? 1 : 0.4
         Behavior on opacity { NumberAnimation { duration: Style.duration(200) } }
@@ -552,6 +570,33 @@ Rectangle {
           }
         }
 
+        // The forecast, hanging from the day: a bar under each hour in which
+        // something falls, longer the more of it, fainter the less likely,
+        // pale where it is snow.
+        Item {
+          id: strip
+          x: ruler.inset
+          y: band.y + band.height
+          width: ruler.span
+          height: Style.space(8)
+
+          Repeater {
+            model: ruler.falls
+
+            Rectangle {
+              required property var modelData
+              required property int index
+              readonly property real slot: strip.width / 24
+              visible: !!modelData && height > 0
+              x: Math.round(index * slot) + 1
+              width: Math.max(1, Math.round((index + 1) * slot) - Math.round(index * slot) - 2)
+              height: modelData ? Math.round((strip.height - 1) * Model.stripLength(modelData.amount)) : 0
+              color: modelData && modelData.snow ? ruler.snowTone : ruler.rainTone
+              opacity: modelData && modelData.chance !== null ? 0.4 + 0.6 * modelData.chance : 0.85
+            }
+          }
+        }
+
         Repeater {
           model: [0, 6, 12, 18, 24]
 
@@ -559,7 +604,7 @@ Rectangle {
             id: tick
             required property int modelData
             x: ruler.inset + ruler.span * modelData / 24
-            y: band.y + band.height
+            y: band.y + band.height + strip.height
 
             Rectangle {
               x: tick.modelData === 24 ? -1 : 0
@@ -611,7 +656,7 @@ Rectangle {
           cursorShape: Qt.PointingHandCursor
           function set(x) {
             var hour = (x - ruler.inset) / ruler.span * 24
-            panel.service.setManual("hour", Math.max(0, Math.min(23.99, hour)))
+            panel.service.setHour(Math.max(0, Math.min(23.99, hour)))
           }
           onPressed: function(mouse) { set(mouse.x) }
           onPositionChanged: function(mouse) { if (pressed) set(mouse.x) }
