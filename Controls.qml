@@ -878,12 +878,20 @@ Rectangle {
                 label: panel.words.t("panel.moon"); from: 0; to: 1
                 value: panel.manual.phase < 0 ? Model.moonPhase(panel.service.now) : panel.manual.phase
                 valueText: panel.manual.phase < 0 ? panel.words.t("panel.real") : panel.percent(0.5 - 0.5 * Math.cos(2 * Math.PI * panel.manual.phase))
+                // Set by hand, the way back to the real moon is right here:
+                // its value, or a double click on its track.
+                canReset: panel.manual.phase >= 0
                 onMoved: function(v) { panel.service.setManual("phase", Math.min(v, 0.999)) }
+                onReset: panel.service.setManual("phase", -1)
               }
             }
 
+            // The events. Kept off the slider above, as the tiles are kept
+            // off the ruler, and wrapping onto a second line where a
+            // language's words are long.
             Flow {
               width: parent.width
+              topPadding: Style.space(6)
               spacing: Style.space(6)
 
               Chip {
@@ -904,11 +912,6 @@ Rectangle {
               Chip {
                 text: panel.words.t("panel.fireflies"); on: panel.manual.fireflies === true
                 onPicked: panel.service.setManual("fireflies", !panel.manual.fireflies)
-              }
-              Chip {
-                visible: panel.manual.phase >= 0
-                text: "↺ " + panel.words.t("panel.realMoon")
-                onPicked: panel.service.setManual("phase", -1)
               }
             }
 
@@ -1200,7 +1203,11 @@ Rectangle {
     property bool muted: false
     // How wide the name is given: the panel's, so every track starts in line.
     property real labelWidth: Style.space(70)
+    // Whether there is something to go back to: then the value says so with
+    // a ↺ and a press on it (or a double click on the track) asks for it.
+    property bool canReset: false
     signal moved(real value)
+    signal reset()
 
     readonly property color ink: Commons.Color.popups.text
     readonly property color accent: Commons.Color.accent
@@ -1283,6 +1290,7 @@ Rectangle {
         }
         onPressed: function(mouse) { set(mouse.x) }
         onPositionChanged: function(mouse) { if (pressed) set(mouse.x) }
+        onDoubleClicked: if (fader.canReset) fader.reset()
       }
     }
 
@@ -1290,14 +1298,23 @@ Rectangle {
       id: readout
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      width: Style.space(52)
+      width: Style.space(60)
       horizontalAlignment: Text.AlignRight
       textFormat: Text.PlainText
-      text: fader.valueText
-      color: fader.ink
-      opacity: 0.75
+      text: (fader.canReset ? "↺ " : "") + fader.valueText
+      color: fader.canReset && resetArea.containsMouse ? fader.accent : fader.ink
+      opacity: fader.canReset && resetArea.containsMouse ? 1 : 0.75
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
+
+      MouseArea {
+        id: resetArea
+        anchors.fill: parent
+        enabled: fader.canReset
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: fader.reset()
+      }
     }
   }
 }

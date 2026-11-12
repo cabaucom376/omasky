@@ -200,7 +200,7 @@ From the top:
 - **Quality**: auto, low, medium, high or ultra (below).
 - **Manual controls**, there only while the mode is Manual: presets, then sliders for
   clouds, precipitation, temperature, fog, wind (either way) and the moon's
-  phase, switches for thunder and hail, and a button to strike now. There is
+  phase (press its value, or double-click its track, for the real moon again), switches for thunder and hail, and a button to strike now. There is
   no rain or snow slider: precipitation says how hard, temperature says
   what, and the rest (melting, icicles, heat waves) follows from it. It also
   shows frames a second and how the last glide went. Touching anything here
