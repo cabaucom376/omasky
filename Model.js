@@ -1591,6 +1591,18 @@ function flashAt(age) {
 
 // The Nerd Font weather glyph for a reading, as Omarchy's own weather widget
 // picks them.
+// The weather as an icon with no sun or moon in it: for where the hour has
+// an icon of its own beside it (the panel's Weather and Day & night).
+function cloudGlyph(weather) {
+  var w = weather || {}
+  if (w.thunder > 0) return "\ue31d"
+  if (w.snow > 0 && w.rain > 0) return "\ue3ad"
+  if (w.snow > 0) return "\ue31a"
+  if (w.rain > 0) return "\ue318"
+  if (w.fog > 0.4) return "\ue313"
+  return "\ue33d"
+}
+
 function glyphFor(weather, night) {
   var w = weather || {}
   if (w.thunder > 0) return "\ue31d"
@@ -1651,7 +1663,7 @@ if (typeof module !== "undefined") {
     qualityFor: qualityFor, suggestQuality: suggestQuality, easedQuality: easedQuality, windowRects: windowRects,
     mixWeather: mixWeather, manualWeather: manualWeather, lyingStep: lyingStep, frozenShare: frozenShare,
     fogFromVisibility: fogFromVisibility, previewWind: previewWind, LYING_MOST: LYING_MOST, demoState: demoState, DEMO: DEMO, DEMO_SCENE: DEMO_SCENE,
-    flashAt: flashAt, glyphFor: glyphFor, parseClock: parseClock, startOfDay: startOfDay,
+    flashAt: flashAt, glyphFor: glyphFor, cloudGlyph: cloudGlyph, parseClock: parseClock, startOfDay: startOfDay,
     steadySky: steadySky, dayMarks: dayMarks, calmWeather: calmWeather, dayEvents: dayEvents,
     forecastDays: forecastDays, placeDay: placeDay, forecastFrom: forecastFrom,
     readingAt: readingAt, hourStrip: hourStrip, stripLength: stripLength,

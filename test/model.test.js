@@ -955,4 +955,14 @@ test("every language has every string, with the same blanks to fill", () => {
   }
 })
 
+test("the panel's weather icon never has the sun or moon in it", () => {
+  const sunOrMoon = ["\ue30d", "\ue32b", "\ue302", "\ue32e", "\ue308", "\ue333", "\ue30a", "\ue327", "\ue346"]
+  for (const code of [0, 1, 2, 3, 45, 51, 61, 65, 71, 75, 66, 95])
+    for (const night of [false, true])
+      assert.ok(!sunOrMoon.includes(M.cloudGlyph(M.weatherFromCode(code, null, 10, 250))), "code " + code)
+  assert.strictEqual(M.cloudGlyph(M.weatherFromCode(0, 0, 5, 250)), "\ue33d")
+  assert.strictEqual(M.cloudGlyph(M.weatherFromCode(95, 90, 5, 250)), "\ue31d")
+  assert.strictEqual(M.cloudGlyph(null), "\ue33d")
+})
+
 console.log("ok: " + ran + " tests")

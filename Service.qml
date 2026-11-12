@@ -1882,8 +1882,10 @@ Item {
       // further from it. So each patch keeps its full strength under most
       // of what is written, and only falls away from there: the far end of
       // a row reads as well as the near one.
-      readonly property real nearCoreWidth: Math.round((info.x + info.width) * 0.6 * root.detailShare)
-      readonly property real nearCoreHeight: Math.round((info.y + info.height) * 0.6 * root.detailShare)
+      // The words alone (no detail) get a core too: their second line, with
+      // the mode, the moon and the next sunrise in it, can run long.
+      readonly property real nearCoreWidth: Math.round((info.x + info.width) * (0.85 - 0.25 * root.detailShare))
+      readonly property real nearCoreHeight: Math.round((info.y + info.height) * (0.85 - 0.25 * root.detailShare))
       readonly property real farCoreWidth: outlook.visible ? Math.round(outlookReach * 0.75 * root.detailShare) : 0
       readonly property real farCoreHeight: outlook.visible ? Math.round((outlook.y + outlook.height) * 0.75 * root.detailShare) : 0
 

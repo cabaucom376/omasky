@@ -679,9 +679,11 @@ Rectangle {
           spacing: Style.space(8)
           readonly property real each: (width - spacing * 2) / 3
 
+          // The weather by a cloud, so that it never shows the same sun or
+          // moon as the hour's tile beside it.
           Tile {
             width: switches.each
-            glyph: panel.service.glyph
+            glyph: Model.cloudGlyph(panel.service.targetWeather)
             text: panel.words.t("panel.weather")
             on: panel.service.weatherOn
             onPicked: panel.service.setWeatherOn(!panel.service.weatherOn)
