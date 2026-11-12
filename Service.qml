@@ -586,6 +586,17 @@ Item {
   property bool debugOpen: false
   // Where along the screen the bar icon is, or -1.
   property real controlsX: -1
+  // The bar icon itself, which the bar widget hands over; null with no
+  // widget in the bar.
+  property Item barIcon: null
+
+  // Where the middle of the icon is along its bar, or -1 with no icon. The
+  // panel opens under it, however it was asked for.
+  function iconX() {
+    if (!barIcon) return -1
+    var at = barIcon.mapToItem(null, barIcon.width / 2, 0)
+    return at ? at.x : -1
+  }
 
   function toggleControls(x) {
     controlsX = x
@@ -1308,7 +1319,7 @@ Item {
 
     // The control panel: quality, the demo, debug.
     function controls(): string {
-      root.toggleControls(-1)
+      root.toggleControls(root.iconX())
       return root.controlsOpen ? "open" : "closed"
     }
 
@@ -1316,6 +1327,7 @@ Item {
     function debug(): string {
       root.seedManual()
       root.debugOpen = true
+      if (!root.controlsOpen) root.controlsX = root.iconX()
       root.controlsOpen = true
       root.show()
       return "open"

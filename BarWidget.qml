@@ -16,8 +16,12 @@ BarWidget {
   Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
 
   // The service has no shell.json entry of its own, so it takes this one's.
+  // It is also told which button this is, so that a panel opened from a
+  // terminal comes up under the icon, as one opened with a right click does.
   function handOver() {
-    if (service) service.settings = settings
+    if (!service) return
+    service.settings = settings
+    service.barIcon = button
   }
   onServiceChanged: handOver()
   onSettingsChanged: handOver()
