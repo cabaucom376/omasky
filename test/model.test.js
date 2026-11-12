@@ -726,4 +726,14 @@ test("the rainbow arches over the desktop, with its feet in the margins beside i
   assert.ok(look.bowSide === 1 || look.bowSide === -1)
 })
 
+test("on battery the quality comes down one level, and low stays low", () => {
+  assert.strictEqual(M.easedQuality("ultra"), "high")
+  assert.strictEqual(M.easedQuality("high"), "medium")
+  assert.strictEqual(M.easedQuality("medium"), "low")
+  assert.strictEqual(M.easedQuality("low"), "low")
+  // Anything it does not know is medium, as qualityFor has it.
+  assert.strictEqual(M.easedQuality("nonsense"), "low")
+  assert.ok(M.qualityFor(M.easedQuality("ultra")).pixel > M.qualityFor("ultra").pixel)
+})
+
 console.log("ok: " + ran + " tests")

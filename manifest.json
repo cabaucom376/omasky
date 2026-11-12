@@ -22,6 +22,7 @@
     "defaultSection": "center",
     "defaults": {
       "quality": "auto",
+      "easeOnBattery": true,
       "shrink": 0.78,
       "skyOpacity": 0.9,
       "animate": true,
@@ -38,6 +39,12 @@
         "type": "string",
         "label": "Quality (auto, low, medium, high, ultra)",
         "defaultValue": "auto"
+      },
+      {
+        "key": "easeOnBattery",
+        "type": "boolean",
+        "label": "Draw one quality level lower on battery or in power-saver mode",
+        "defaultValue": true
       },
       {
         "key": "shrink",

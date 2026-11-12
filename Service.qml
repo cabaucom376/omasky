@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import Quickshell.Services.UPower
 import qs.Commons
 import qs.Commons as Commons
 import "Model.js" as Model
@@ -140,7 +141,14 @@ Item {
   // nothing is drawn: no shader is compiled for a quality that is about to
   // change.
   readonly property bool qualityKnown: !qualityAuto || suggestedQuality !== ""
-  readonly property var quality: Model.qualityFor(qualityPick || (qualityAuto ? (suggestedQuality || "medium") : qualitySetting))
+  // The level chosen: by hand, or for the machine.
+  readonly property string qualityChoice: Model.qualityFor(qualityPick || (qualityAuto ? (suggestedQuality || "medium") : qualitySetting)).name
+  // Running on the battery, or with the power-saver profile on, the sky is
+  // drawn one level lower than that, and comes back up when the power does.
+  // (Nothing is compiled for it: the level is a number the shaders are handed.)
+  readonly property bool easeOnBattery: setting("easeOnBattery", true) !== false
+  readonly property bool savingPower: easeOnBattery && (UPower.onBattery || PowerProfiles.profile === PowerProfile.PowerSaver)
+  readonly property var quality: Model.qualityFor(savingPower ? Model.easedQuality(qualityChoice) : qualityChoice)
 
   Process {
     id: machineProbe
@@ -1502,6 +1510,9 @@ Item {
         mode: root.mode,
         quality: root.quality.name,
         qualityAuto: root.qualityAuto,
+        // The level chosen, and whether it is being held a level lower to save power.
+        qualityChoice: root.qualityChoice,
+        savingPower: root.savingPower,
         weather: root.weatherOn,
         dayNight: root.dayNight,
         info: ["off", "simple", "detailed"][root.infoLevel],

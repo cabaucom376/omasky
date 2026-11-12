@@ -915,6 +915,13 @@ function qualityFor(name) {
 
 // The quality a machine can carry, from what the installer can see of it:
 // `renderer` is the GL renderer's name, memory is in GiB.
+// One level down from a quality, for running on battery: the sky costs the
+// most of anything the shell draws. Low is as low as it goes.
+function easedQuality(name) {
+  var q = qualityFor(name).name
+  return q === "ultra" ? "high" : q === "high" ? "medium" : "low"
+}
+
 function suggestQuality(renderer, cores, memory) {
   var r = String(renderer || "").toLowerCase()
   var software = r === "" || /llvmpipe|softpipe|software/.test(r)
@@ -1429,7 +1436,7 @@ if (typeof module !== "undefined") {
     deskPlacement: deskPlacement, placed: placed, deskWindows: deskWindows, bounds: bounds,
     frameMargins: frameMargins, shownWindows: shownWindows, skyWash: skyWash, titleBars: titleBars,
     ledgeStep: ledgeStep, ledgeSlots: ledgeSlots, LEDGES: LEDGES, ICICLE_MOST: ICICLE_MOST,
-    qualityFor: qualityFor, suggestQuality: suggestQuality, windowRects: windowRects,
+    qualityFor: qualityFor, suggestQuality: suggestQuality, easedQuality: easedQuality, windowRects: windowRects,
     mixWeather: mixWeather, manualWeather: manualWeather, lyingStep: lyingStep, frozenShare: frozenShare,
     fogFromVisibility: fogFromVisibility, previewWind: previewWind, LYING_MOST: LYING_MOST, demoState: demoState, DEMO: DEMO, DEMO_SCENE: DEMO_SCENE,
     flashAt: flashAt, glyphFor: glyphFor, parseClock: parseClock, startOfDay: startOfDay,

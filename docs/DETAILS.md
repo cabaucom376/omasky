@@ -201,6 +201,12 @@ virtual machine's GPU, under six cores or under 7 GiB; high otherwise. It
 never picks ultra. Choosing one in the panel keeps it, and Auto there goes
 back to the machine's own.
 
+On battery, or with the power-saver profile on, the sky is drawn one level
+lower than the one set, and comes back up when the power does. The panel
+marks the level it is drawing at, and nothing is compiled for the change:
+the level is a number the shaders are handed. Set `easeOnBattery` to `false`
+to keep the level as it is set.
+
 ## How it stays smooth
 
 - The weather is a picture a quarter of the screen's size each way (a fifth
