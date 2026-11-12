@@ -184,7 +184,9 @@ Rectangle {
       Item {
         id: facts
         width: parent.width
-        height: said.implicitHeight + Style.space(18)
+        // As tall as the taller side: the time can have a line over it (a
+        // forecast) and a chip under it (the way back to the real time).
+        height: Math.max(said.implicitHeight, clock.implicitHeight) + Style.space(18)
 
         Column {
           id: said
@@ -839,6 +841,9 @@ Rectangle {
                 labelWidth: panel.labelWidth
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.clouds"); value: panel.manual.cover; valueText: panel.percent(panel.manual.cover)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("cover")
+                onReset: panel.service.resetSlider("cover")
                 onMoved: function(v) { panel.service.setManual("cover", v) }
               }
               // How hard it comes down, and how warm it is. The warmth is what
@@ -848,6 +853,9 @@ Rectangle {
                 labelWidth: panel.labelWidth
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.precip"); value: panel.manual.precip; valueText: panel.percent(panel.manual.precip)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("precip")
+                onReset: panel.service.resetSlider("precip")
                 onMoved: function(v) { panel.service.setManual("precip", v) }
               }
               Fader {
@@ -855,12 +863,18 @@ Rectangle {
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.temperature"); from: -15; to: 45; notch: 0
                 value: panel.manual.temperature; valueText: panel.degrees(panel.manual.temperature)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("temperature")
+                onReset: panel.service.resetSlider("temperature")
                 onMoved: function(v) { panel.service.setManual("temperature", v) }
               }
               Fader {
                 labelWidth: panel.labelWidth
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.fog"); value: panel.manual.fog; valueText: panel.percent(panel.manual.fog)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("fog")
+                onReset: panel.service.resetSlider("fog")
                 onMoved: function(v) { panel.service.setManual("fog", v) }
               }
               // It blows either way: the track fills out from the middle.
@@ -870,6 +884,9 @@ Rectangle {
                 label: panel.words.t("panel.wind"); from: -100; to: 100; origin: 0; notch: 0
                 value: panel.manual.wind
                 valueText: (panel.manual.wind < 0 ? "← " : "→ ") + Commons.I18n.formatNumber(Math.abs(Math.round(panel.manual.wind)))
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("wind")
+                onReset: panel.service.resetSlider("wind")
                 onMoved: function(v) { panel.service.setManual("wind", v) }
               }
               Fader {
@@ -1298,7 +1315,9 @@ Rectangle {
       id: readout
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      width: Style.space(60)
+      // Room for the longest of them ("↺ ← 100"), and never cut short if
+      // one is longer: the track gives way instead.
+      width: Math.max(Style.space(68), implicitWidth)
       horizontalAlignment: Text.AlignRight
       textFormat: Text.PlainText
       text: (fader.canReset ? "↺ " : "") + fader.valueText

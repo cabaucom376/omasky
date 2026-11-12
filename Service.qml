@@ -705,6 +705,26 @@ Item {
   // is, the sky as it is, so they follow the real weather as it turns.
   readonly property var sliders: mode === "manual" ? manual : slidersNow()
 
+  // Where each manual slider would be for the real weather.
+  readonly property var realSliders: {
+    var w = liveWeather
+    var t = reading && reading.temperature !== null && reading.temperature !== undefined ? reading.temperature : (w.snow > w.rain ? -3 : 15)
+    return {
+      cover: w.cover, precip: w.precip || 0, fog: w.fog, temperature: t,
+      wind: (w.windPx < 0 ? -1 : 1) * Math.max(0, (Math.abs(w.windPx) - 6) / 1.5)
+    }
+  }
+  // Whether a slider has been moved off the real weather, in manual mode:
+  // then it offers the way back (resetSlider).
+  function offReal(key) {
+    if (mode !== "manual" || realSliders[key] === undefined) return false
+    var near = key === "temperature" || key === "wind" ? 0.5 : 0.01
+    return Math.abs(Number(manual[key]) - realSliders[key]) > near
+  }
+  function resetSlider(key) {
+    if (realSliders[key] !== undefined) setManual(key, realSliders[key])
+  }
+
   // Start the sliders from what the sky is doing now.
   function seedManual() {
     if (mode === "manual") return
@@ -843,7 +863,10 @@ Item {
                                               { temperature: Model.DEMO[demoStep].temperature, plain: true })
     : mode === "preview" ? Model.weatherFromCode(previewCode, null, previewWind !== null ? previewWind : 14, 250,
                                                  { temperature: previewTemperature, plain: true })
-    : reading ? Model.weatherFromCode(reading.code, reading.cloudCover, reading.windSpeed, reading.windDirection,
+    : liveWeather
+  // The real weather, whatever the mode: what live shows, and what each of
+  // the manual sliders goes back to.
+  readonly property var liveWeather: reading ? Model.weatherFromCode(reading.code, reading.cloudCover, reading.windSpeed, reading.windDirection,
                                       { temperature: reading.temperature, gusts: reading.gusts, visibility: reading.visibility,
                                         coverLow: reading.coverLow, coverMid: reading.coverMid, coverHigh: reading.coverHigh })
     // Nothing known yet: a fair sky rather than a blank one.

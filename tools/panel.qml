@@ -161,7 +161,7 @@ ShellRoot {
     readonly property bool fahrenheit: true
     readonly property string temperatureText: Math.round(Model.celsiusToFahrenheit(shell.at.temperature)) + "°"
     readonly property string conditionText: strings.t("condition." + targetWeather.key)
-    readonly property bool clockPinned: mode === "manual" && manual.hour >= 0
+    readonly property bool clockPinned: (mode === "manual" && manual.hour >= 0) || shell.at.forecast === true
     readonly property real frameRate: 60
     readonly property real refreshHz: 60
     readonly property var lastGlide: ({ frames: 42, worst: 11 })
@@ -179,6 +179,9 @@ ShellRoot {
     function setDayNight(on) {}
     function setShowInfo(on) {}
     function setInfoLevel(level) {}
+    // In the `tune` scene the clouds and the temperature are off the real weather.
+    function offReal(key) { return shell.at.tune === true && (key === "cover" || key === "temperature") }
+    function resetSlider(key) {}
     readonly property bool soundOn: shell.at.sound === true
     readonly property bool soundMissing: false
     function setSoundOn(on) {}
