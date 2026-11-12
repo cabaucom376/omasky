@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omasky",
   "name": "Omasky",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "chase",
   "license": "MIT",
   "description": "The weather moves in around your desktop as pixel art: your real windows step into a smaller frame under a live sky, with the sun and moon on the clock and clouds, rain, snow, hail, fog and heat from the real conditions, in the theme's colors.",
