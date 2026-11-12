@@ -33,9 +33,12 @@ BarWidget {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: root.service ? root.service.glyph : ""
+    // The weather as an icon; or, when rain or snow is about to start, an
+    // umbrella or a snowflake, with how long there is in the tooltip.
+    text: root.service ? root.service.barGlyph : ""
     active: root.service ? root.service.active : false
-    tooltipText: root.service && root.service.active ? root.service.summary : strings.t("widget.tooltip")
+    tooltipText: root.service && root.service.soonText !== "" ? root.service.soonText
+      : root.service && root.service.active ? root.service.summary : strings.t("widget.tooltip")
 
     onPressed: function(b) {
       if (!root.service) return

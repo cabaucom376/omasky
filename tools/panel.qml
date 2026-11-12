@@ -134,6 +134,9 @@ ShellRoot {
     readonly property var solar: Model.solarDay(now, sunrises, sunsets)
     readonly property bool night: !solar.isDay
     readonly property string glyph: Model.glyphFor(targetWeather, night)
+    readonly property var soon: null
+    readonly property string soonText: ""
+    readonly property string barGlyph: glyph
     readonly property var location: ({ name: "Lisbon", latitude: 38.72, longitude: -9.14 })
     readonly property bool forecastFailed: false
     readonly property bool qualityKnown: !shell.flat

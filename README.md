@@ -64,6 +64,10 @@ clock.
 | Right click | The control panel, with the sky up or without it |
 | Middle click | Back to the real weather |
 
+The icon is the weather as it is now. When rain or snow is due to start
+within the hour it turns into an umbrella or a snowflake, and its tooltip
+says how long there is.
+
 <img src="docs/menu.png" alt="The control panel, folded and with the manual controls open" width="720">
 
 In the panel:
@@ -112,15 +116,18 @@ Set on the bar widget, for example `omarchy bar set omasky shrink 0.7 --json`.
 | `infoDetail` | `false` | With them, the detail and the forecast |
 | `weather` | `true` | Clouds, what falls, fog, wind and heat |
 | `dayNight` | `true` | Sun, moon, stars and the sky's color by the hour |
+| `headsUp` | `true` | Warn on the bar icon when rain or snow is due within the hour |
 | `refreshMinutes` | `15` | How often to ask for the weather while showing |
 | `unit` | `"auto"` | `"metric"` or `"imperial"` to override the locale |
 
 ## Privacy
 
-Omasky uses the network only while the sky or its control panel is
-showing. It asks `geo.omarchy.org` where you are, unless a city is set, and
+Omasky asks `geo.omarchy.org` where you are, unless a city is set, and
 Open-Meteo for the conditions there, with coordinates rounded to about a
-kilometre. A city typed into the panel goes to Open-Meteo's place search
+kilometre. It does so while the sky or its control panel is showing, and,
+for the warning on the bar icon, every twenty minutes or so the rest of
+the time. Set `headsUp` to `false` and it asks for nothing while nothing
+is on screen. A city typed into the panel goes to Open-Meteo's place search
 and nowhere else. It is saved as Omarchy's own weather location, so
 Omarchy's weather widget follows it too.
 
