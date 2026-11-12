@@ -77,7 +77,8 @@ In the panel:
   wind, the humidity and a four-day forecast.
 - **Mode**: live, a demo of a whole day, or manual, with a slider for every
   part of the weather.
-- **Quality**: auto, low, medium, high or ultra.
+- **Quality**: auto, low, medium, high or ultra. On battery it draws one
+  level lower.
 
 ## From a terminal
 
@@ -102,6 +103,7 @@ Set on the bar widget, for example `omarchy bar set omasky shrink 0.7 --json`.
 | Key | Default | |
 |---|---|---|
 | `quality` | `"auto"` | `auto` (by the machine), `low`, `medium`, `high` or `ultra` |
+| `easeOnBattery` | `true` | Draw one quality level lower on battery or in power-saver mode |
 | `shrink` | `0.78` | How much of the screen the windows keep each way, 0.4 to 0.94 |
 | `skyOpacity` | `0.9` | The most of the wallpaper the sky covers, in the worst weather |
 | `animate` | `true` | Glide in and out; `false` cuts |

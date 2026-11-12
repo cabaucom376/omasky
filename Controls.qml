@@ -701,11 +701,15 @@ Rectangle {
           width: parent.width
           spacing: Style.space(6)
 
-          Heading { text: panel.words.t("panel.quality") }
+          Heading {
+            text: panel.words.t("panel.quality") + (panel.service.savingPower ? "  ·  " + panel.words.t("panel.savingPower") : "")
+          }
           Segments {
-            value: panel.service.qualityAuto ? "auto" : panel.service.quality.name
-            // Left to itself, what it has settled on for this machine.
-            echo: panel.service.qualityAuto ? panel.service.quality.name : ""
+            value: panel.service.qualityAuto ? "auto" : panel.service.qualityChoice
+            // What it is drawing at when that is not the level picked: left
+            // to itself, what it has settled on for this machine; and on
+            // battery, a level under the one picked.
+            echo: panel.service.qualityAuto || panel.service.quality.name !== panel.service.qualityChoice ? panel.service.quality.name : ""
             options: [
               { value: "auto", label: panel.words.t("panel.auto") },
               { value: "low", label: panel.words.t("panel.low") },
