@@ -849,4 +849,73 @@ test("the forecast asks for the next two hours by the quarter and reads them", (
   assert.deepStrictEqual(M.parseForecast(JSON.stringify({ current: { weather_code: 2 } })).soon, [])
 })
 
+test("the northern lights keep to high latitudes, and to some nights", () => {
+  // Nowhere near the equator, on any night.
+  for (let night = 0; night < 400; night++) {
+    assert.strictEqual(M.auroraFor(40, night), 0)
+    assert.strictEqual(M.auroraFor(-35, night), 0)
+  }
+  // Far north, most nights but not all; further south, fewer; and the far south has them as the far north does.
+  const nights = lat => { let n = 0; for (let night = 20000; night < 20400; night++) if (M.auroraFor(lat, night) > 0) n++; return n }
+  assert.ok(nights(68) > 250 && nights(68) < 400, "at 68: " + nights(68))
+  assert.ok(nights(57) > 40 && nights(57) < nights(68), "at 57: " + nights(57))
+  assert.ok(nights(-68) > 250)
+  // A night is one thing from dusk to dawn, and a strength worth seeing when it comes.
+  assert.strictEqual(M.auroraFor(68, 20001), M.auroraFor(68, 20001))
+  for (let night = 20000; night < 20050; night++) { const a = M.auroraFor(68, night); assert.ok(a === 0 || (a >= 0.45 && a <= 1)) }
+  assert.strictEqual(M.auroraFor(null, 1), 0)
+  assert.strictEqual(M.auroraFor("north", 1), 0)
+  // Which night it is does not change at midnight.
+  const g = { width: 1600, height: 1000, margin: 200, deck: 180 }
+  const late = M.celestial(new Date(2026, 0, 10, 23, 30).getTime(), [], [], g, 68)
+  const early = M.celestial(new Date(2026, 0, 11, 2, 0).getTime(), [], [], g, 68)
+  assert.strictEqual(late.nightOf, early.nightOf)
+  assert.strictEqual(late.latitude, 68)
+  assert.strictEqual(M.celestial(Date.now(), [], [], g, undefined).latitude, null)
+})
+
+test("the lights and the fireflies want the dark, and the right sky", () => {
+  const palette = M.derivePalette({ mode: "dark", background: "#142620", foreground: "#dfede5", green: "#9ece6a", magenta: "#bb9af7", yellow: "#e0af68" }, {})
+  const g = { width: 1600, height: 1000, margin: 200, deck: 180, desk: null }
+  const night = M.celestial(new Date(2026, 5, 1, 23, 30).getTime(), [], [], g, 40)
+  const noon = M.celestial(new Date(2026, 5, 1, 12, 0).getTime(), [], [], g, 40)
+  const scene = (sky, w) => M.sceneUniforms(palette, sky, w, g).scene
+  const clear = M.manualWeather({ cover: 0.05, precip: 0, temperature: 22, wind: 6, aurora: true, fireflies: true })
+  // By hand, on a clear warm night: both, in the theme's colors.
+  const both = scene(night, clear)
+  assert.ok(both.aurora > 0.8 && both.fireflies > 0.8)
+  assert.ok(/^#[0-9a-f]{6}$/.test(both.auroraLow) && /^#[0-9a-f]{6}$/.test(both.auroraHigh) && /^#[0-9a-f]{6}$/.test(both.fireflyColor))
+  // Not by day, whatever is switched on.
+  assert.ok(scene(noon, clear).aurora < 0.01 && scene(noon, clear).fireflies < 0.01)
+  // The lights are lost behind a closed sky; the fireflies are not.
+  const closed = scene(night, M.manualWeather({ cover: 1, precip: 0, temperature: 22, wind: 6, aurora: true, fireflies: true }))
+  assert.ok(closed.aurora < 0.01 && closed.fireflies > 0.8)
+  // Switched off by hand they are off.
+  const off = scene(night, M.manualWeather({ cover: 0.05, precip: 0, temperature: 22, wind: 6 }))
+  assert.ok(off.aurora === 0 && off.fireflies === 0)
+  // Left to the weather, fireflies come with a warm, still, dry night and not otherwise.
+  const live = (t, extra) => scene(night, Object.assign(M.weatherFromCode(0, 5, 6, 250, { temperature: t }), extra || {})).fireflies
+  assert.ok(live(23) > 0.8)
+  assert.strictEqual(live(8), 0)
+  assert.ok(M.firefliesFor(M.weatherFromCode(63, 90, 6, 250, { temperature: 23 })) < 0.05)
+  assert.ok(M.firefliesFor(M.weatherFromCode(0, 5, 60, 250, { temperature: 23 })) < 0.05)
+  assert.strictEqual(M.firefliesFor(M.weatherFromCode(0, 5, 6, 250)), 0)
+  // And at forty degrees the live sky has no lights, on any night.
+  assert.strictEqual(scene(night, M.weatherFromCode(0, 5, 6, 250, { temperature: 10 })).aurora, 0)
+  // With the hour switched out of the sky there is no night for either.
+  const steady = M.steadySky(night, 1)
+  assert.ok(scene(steady, clear).aurora < 0.01 && scene(steady, clear).fireflies < 0.01)
+})
+
+test("a sky turning from live to set by hand brings the lights in, and back out", () => {
+  const live = M.weatherFromCode(0, 5, 6, 250, { temperature: 20 })
+  const hand = M.manualWeather({ cover: 0.05, precip: 0, temperature: 20, wind: 6, aurora: true })
+  // Toward a hand-set sky they are part of what it turns to.
+  const part = M.mixWeather(hand, M.manualWeather({ cover: 0.05, precip: 0, temperature: 20, wind: 6 }), 0.5)
+  assert.ok(part.aurora > 0.4 && part.aurora < 0.6 && part.settled === false)
+  assert.strictEqual(M.mixWeather(live, hand, 1).aurora, 1)
+  // Back toward the live sky they are left out again, for the sky to decide.
+  assert.strictEqual(M.mixWeather(hand, live, 0.3).aurora, undefined)
+})
+
 console.log("ok: " + ran + " tests")

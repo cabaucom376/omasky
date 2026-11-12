@@ -680,6 +680,9 @@ Item {
     return {
       cover: w.cover, precip: w.precip || 0, fog: w.fog,
       thunder: w.thunder > 0.5, hail: w.hail > 0.5,
+      // The northern lights and the fireflies start off: by hand they are
+      // switches, whatever the night outside is doing.
+      aurora: false, fireflies: false,
       wind: (w.windPx < 0 ? -1 : 1) * Math.max(0, (Math.abs(w.windPx) - 6) / 1.5),
       // With no temperature known, one that suits what is falling.
       temperature: temperature === null || temperature === undefined ? (w.snow > w.rain ? -3 : 15) : temperature,
@@ -1480,18 +1483,19 @@ Item {
     // One of the by-hand controls, as the panel's sliders have them: clouds,
     // precip and fog from 0 to 1; temperature in degrees Celsius; wind in
     // km/h (negative blows left); hour from 0 to 24 and moon from 0 to 1
-    // (-1 for the real one); thunder and hail on or off. Like the sliders,
+    // (-1 for the real one); thunder, hail, aurora and fireflies on or off. Like the sliders,
     // it takes the sky into hand, and shows it.
     function set(name: string, value: string): string {
       var keys = {
         clouds: "cover", cover: "cover", precip: "precip", precipitation: "precip", fog: "fog",
         temperature: "temperature", temp: "temperature", wind: "wind", hour: "hour", time: "hour",
-        moon: "phase", phase: "phase", thunder: "thunder", hail: "hail"
+        moon: "phase", phase: "phase", thunder: "thunder", hail: "hail",
+        aurora: "aurora", lights: "aurora", fireflies: "fireflies"
       }
       var key = keys[String(name || "").trim().toLowerCase()]
       if (!key) return "unknown control: " + name
       var to
-      if (key === "thunder" || key === "hail") {
+      if (key === "thunder" || key === "hail" || key === "aurora" || key === "fireflies") {
         to = root.switched(value, root.sliders[key] === true)
       } else {
         to = Number(value)

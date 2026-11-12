@@ -83,6 +83,8 @@ layout(std140, binding = 0) uniform buf {
     float bowR;         // and how far out its inmost band runs
     float bowSide;      // which half is away from the sun: -1 left, 1 right
     float halo;         // a ring round the moon, 0..1
+    float aurora;       // the northern lights, 0..1
+    float fireflies;    // 0..1
 
     vec2 canvas;
     vec2 sunPos;
@@ -133,6 +135,10 @@ layout(std140, binding = 0) uniform buf {
     vec4 bowOuter;
     vec4 bowMiddle;
     vec4 bowInner;
+    // The northern lights, from their hem up; and a firefly.
+    vec4 auroraLow;
+    vec4 auroraHigh;
+    vec4 fireflyColor;
 } u;
 
 #include "common.glsl"
@@ -1022,6 +1028,28 @@ vec4 skyPass(vec2 p, vec2 cell) {
     if (night > 0.02) {
         float clear = night * night * (1.0 - u.fog * 0.85) * (1.0 - 0.7 * smoothstep(0.45, 1.0, uv.y));
         useGrid(ART);
+        // The northern lights, where the place is far enough from the
+        // equator and the night is a clear one: curtains hung across the
+        // top of the sky, bright along the hem and thinning up their folds,
+        // green going to violet, swaying slowly. They are behind the stars,
+        // which show through them.
+        if (DETAIL_1 && u.aurora > 0.01) {
+            float across = art.x * ART / SCENE.x;
+            float sway = u.slowTime * 0.05;
+            float fold = sin(across * 7.0 + sway) + 0.55 * sin(across * 16.0 - sway * 1.7);
+            // Where the hem hangs, a little over the desktop, and how far
+            // up from it this pixel is: 0 at the hem, 1 where the rays give
+            // out, which is about the top of the sky.
+            float up = (u.deck * (0.80 + 0.11 * fold) - art.y * ART) / (u.deck * 0.85);
+            if (up > 0.0 && up < 1.0) {
+                float rays = 0.3 + 0.7 * (0.5 + 0.5 * sin(across * 140.0 + fold * 3.0 + sway * 3.0));
+                float glow = u.aurora * clear * rays * (1.0 - up) * sqrt(1.0 - up) * (0.45 + 0.55 * smoothstep(0.0, 0.06, up));
+                if (glow * 1.3 > bayer8(art)) {
+                    col = mix(col, mix(u.auroraLow.rgb, u.auroraHigh.rgb, smoothstep(0.1, 0.7, up)), 0.85);
+                    solid = max(solid, 0.6);
+                }
+            }
+        }
         // Single pixels that blink, and a few crosses that open and close.
         float h = hash12(art * 1.3 + 4.0);
         float blink = step(0.35, fract(h * 37.0 + floor(u.slowTime * 1.6 + h * 9.0) * 0.37));
@@ -1228,6 +1256,29 @@ vec4 skyPass(vec2 p, vec2 cell) {
             }
             solid = 1.0;
         }
+    }
+
+    // Fireflies, on a warm, still, dry night: single lights, more of them
+    // toward the ground, each keeping to its own patch of air, wandering
+    // about in it and coming and going. Brightest, one is a small cross.
+    if (DETAIL_1 && u.fireflies > 0.01) {
+        useGrid(ART);
+        float plot = floor(22.0 * K);
+        vec2 home = floor(art / plot);
+        vec2 fh = hash22(home + 31.0);
+        if (fh.x < u.fireflies * (0.22 + 0.5 * smoothstep(0.2, 0.85, p.y / SCENE.y))) {
+            float ft = u.slowTime * (0.35 + 0.3 * fh.y);
+            vec2 at = (home + 0.5) * plot + floor(plot * 0.32 * vec2(sin(ft + fh.x * 40.0), cos(ft * 0.8 + fh.y * 40.0)));
+            float lit = smoothstep(0.35, 0.8, sin(u.slowTime * (1.1 + fh.y) + fh.x * 60.0));
+            // A bright pixel in a small glow that comes and goes with it,
+            // which is what tells it from a star.
+            float reach = length(art - at);
+            if (lit > 0.0 && (reach < 0.7 || lit * (1.0 - reach / 4.0) > 0.15 + 0.85 * bayer4(art))) {
+                col = mix(col, u.fireflyColor.rgb, reach < 0.7 ? 1.0 : 0.7);
+                solid = max(solid, reach < 0.7 ? 1.0 : 0.6);
+            }
+        }
+        useGrid(u.pixel);
     }
 
     float alpha = 1.0 - (1.0 - u.skyAlpha) * (1.0 - solid);

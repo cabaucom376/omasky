@@ -139,7 +139,12 @@ function derivePalette(colors, fallback) {
     // A rainbow, outside in: the theme's red, its yellow, its blue.
     bowOuter: red,
     bowMiddle: yellow,
-    bowInner: mixColor(blue, pick("magenta", "color5") || blue, 0.35)
+    bowInner: mixColor(blue, pick("magenta", "color5") || blue, 0.35),
+    // The northern lights: the theme's green along the hem, going to its
+    // violet up the folds. And a firefly: its yellow, a little green.
+    auroraLow: mixColor(pick("green", "color2") || mixColor(cyan, yellow, 0.5), paper, 0.18),
+    auroraHigh: mixColor(pick("magenta", "color5", "purple") || mixColor(blue, red, 0.5), blue, 0.3),
+    firefly: mixColor(mixColor(yellow, pick("green", "color2") || yellow, 0.35), paper, 0.25)
   }
 }
 
@@ -784,6 +789,11 @@ function celestial(now, sunrises, sunsets, geometry, latitude, phase) {
   var glowX = day.isDay ? arc.x : (sinceStart < untilEnd ? geometry.width - edge : edge)
 
   return {
+    // How far from the equator the place is, where that is known, and which
+    // night this is, counted from noon to noon so it does not change at
+    // midnight: for what only some skies and some nights have.
+    latitude: latitude === null || latitude === undefined || !isFinite(Number(latitude)) ? null : Number(latitude),
+    nightOf: Math.floor((now - DAY / 2) / DAY),
     isDay: day.isDay,
     estimated: day.estimated,
     progress: progress,
@@ -889,6 +899,35 @@ function skyWash(weather, dayness, twilight, steady) {
   return mix(0.25, 1, v) * mix(1, smoothstep(0, 0.2, v), still)
 }
 
+// A number from 0 to 1 for a whole number, the same every time: the dice
+// for things that some nights have and some do not.
+function dice(n) {
+  var v = Math.sin(Number(n) * 12.9898 + 78.233) * 43758.5453
+  return v - Math.floor(v)
+}
+
+// The northern lights (or the southern): how strongly they show on a given
+// night, 0..1, before the weather has its say. It goes by how far from the
+// equator the place is: never below about fifty degrees, most nights from
+// the middle sixties up. Each night is its own, the same from dusk to dawn.
+function auroraFor(latitude, nightOf) {
+  if (latitude === null || latitude === undefined) return 0
+  var far = Math.abs(Number(latitude))
+  if (!isFinite(far)) return 0
+  var often = smoothstep(50, 66, far) * 0.85
+  if (dice(nightOf) >= often) return 0
+  return 0.45 + 0.55 * dice(nightOf + 0.5)
+}
+
+// Fireflies: how many, 0..1, for the weather alone (the hour is the sky's
+// to add). A warm night with no rain and not much wind.
+function firefliesFor(weather) {
+  var w = weather || {}
+  if (!known(w.temperature)) return 0
+  return smoothstep(15, 21, Number(w.temperature)) * (1 - smoothstep(0.02, 0.2, (w.rain || 0) + (w.snow || 0)))
+    * (1 - smoothstep(0.45, 0.8, Math.abs(w.wind || 0))) * (1 - 0.6 * (w.fog || 0))
+}
+
 // Where the rainbow stands: a circle, drawn from its inmost band outward.
 // The desktop fills the middle of the screen, so a bow that only crossed the
 // middle would be lost behind the windows. This one is fitted round them:
@@ -957,6 +996,14 @@ function sceneUniforms(palette, sky, weather, geometry) {
   var rainbow = sunUp ? smoothstep(0.04, 0.3, weather.rain) * (1 - smoothstep(0.5, 0.92, cover))
                         * smoothstep(0.22, 0.55, sky.sun.low) * (1 - weather.fog) * (1 - steady) : 0
   var bow = bowShape(geometry, sky.sun.x)
+  // The northern lights want a dark, open sky; where a mode sets them
+  // (weather.aurora) that is how strong they are, and otherwise it is up to
+  // the place and the night. Fireflies want the night, and the weather for
+  // them. Neither is there with the hour switched out of the sky.
+  var dark = (1 - d) * (1 - d) * (1 - steady)
+  var aurora = (known(weather.aurora) ? weather.aurora : auroraFor(sky.latitude, sky.nightOf))
+    * dark * (1 - smoothstep(0.35, 0.8, cover)) * (1 - weather.fog)
+  var fireflies = (known(weather.fireflies) ? weather.fireflies : firefliesFor(weather)) * smoothstep(0.75, 0.95, 1 - d) * (1 - steady)
   // A ring round the moon wants thin high cloud in front of it and nothing
   // thicker below.
   var halo = !sunUp && !falling ? smoothstep(0.12, 0.4, highCover) * (1 - smoothstep(0.7, 0.95, Math.max(lowCover, midCover)))
@@ -995,6 +1042,11 @@ function sceneUniforms(palette, sky, weather, geometry) {
       bowR: bow.radius,
       bowSide: bow.side,
       halo: halo,
+      aurora: aurora,
+      fireflies: fireflies,
+      auroraLow: toHex(palette.auroraLow),
+      auroraHigh: toHex(palette.auroraHigh),
+      fireflyColor: toHex(palette.firefly),
       bowOuter: toHex(palette.bowOuter),
       bowMiddle: toHex(palette.bowMiddle),
       bowInner: toHex(palette.bowInner),
@@ -1101,6 +1153,17 @@ function mixWeather(a, b, t) {
     else settled = false
     out[f] = v
   }
+  // The northern lights and the fireflies, where a mode sets them. Left
+  // out, the sky decides them for itself (sceneUniforms).
+  var set = ["aurora", "fireflies"]
+  for (var j = 0; j < set.length; j++) {
+    var e = set[j]
+    if (!known(b[e])) continue
+    var lit = mix(known(a[e]) ? a[e] : b[e], b[e], k)
+    if (Math.abs(lit - b[e]) < 0.004) lit = b[e]
+    else settled = false
+    out[e] = lit
+  }
   // The temperature turns too, where there is one at both ends.
   if (known(a.temperature) && known(b.temperature)) {
     var warm = mix(a.temperature, b.temperature, k)
@@ -1152,7 +1215,10 @@ function manualWeather(m) {
     storm: clamp(thunder * 0.6 + rain * 0.7 + snow * 0.25 + hail * 0.2, 0, 1),
     wind: heading * clamp(0.18 + speed / 55, 0.18, 1),
     gust: smoothstep(12, 70, speed),
-    windPx: heading * (6 + Math.min(speed, 120) * 1.5)
+    windPx: heading * (6 + Math.min(speed, 120) * 1.5),
+    // By hand these are switches, and the sky has no say.
+    aurora: s.aurora === true ? 1 : 0,
+    fireflies: s.fireflies === true ? 1 : 0
   }
 }
 
@@ -1567,6 +1633,7 @@ if (typeof module !== "undefined") {
     parseForecast: parseForecast, parseLocation: parseLocation, forecastUrl: forecastUrl,
     moonPhase: moonPhase, moonPhaseKey: moonPhaseKey, moonGlyph: moonGlyph, solarDay: solarDay,
     arcPosition: arcPosition, celestial: celestial, sceneUniforms: sceneUniforms, bowShape: bowShape,
+    auroraFor: auroraFor, firefliesFor: firefliesFor,
     deskPlacement: deskPlacement, placed: placed, deskWindows: deskWindows, bounds: bounds,
     frameMargins: frameMargins, shownWindows: shownWindows, skyWash: skyWash, titleBars: titleBars,
     ledgeStep: ledgeStep, ledgeSlots: ledgeSlots, LEDGES: LEDGES, ICICLE_MOST: ICICLE_MOST,

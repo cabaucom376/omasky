@@ -881,6 +881,16 @@ Rectangle {
                 onPicked: panel.service.setManual("hail", !panel.manual.hail)
               }
               Chip { text: " " + panel.words.t("panel.strike"); onPicked: panel.service.strike() }
+              // What only some nights have, to be had on any: they show
+              // after dark, the lights in an open sky.
+              Chip {
+                text: panel.words.t("panel.aurora"); on: panel.manual.aurora === true
+                onPicked: panel.service.setManual("aurora", !panel.manual.aurora)
+              }
+              Chip {
+                text: panel.words.t("panel.fireflies"); on: panel.manual.fireflies === true
+                onPicked: panel.service.setManual("fireflies", !panel.manual.fireflies)
+              }
               Chip {
                 visible: panel.manual.phase >= 0
                 text: "↺ " + panel.words.t("panel.realMoon")
