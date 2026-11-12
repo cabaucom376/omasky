@@ -324,6 +324,17 @@ function weatherFromCode(code, cloudCover, windSpeed, windDirection, more) {
   }
 }
 
+// How loud the rain and the wind are for a sky, each 0..1. The rain by how
+// hard it falls, hail louder still, and snow not at all: it falls silent.
+// The wind from a stiff breeze up, and more of it in gusts.
+function soundLevels(weather) {
+  var w = weather || {}
+  var falling = w.rain || 0
+  var rain = smoothstep(0.02, 0.85, falling) * (0.55 + 0.45 * falling) + 0.5 * (w.hail || 0) * smoothstep(0.02, 0.3, w.precip || 0)
+  var wind = smoothstep(0.4, 1.0, Math.abs(w.wind || 0)) * (0.6 + 0.4 * (w.gust || 0))
+  return { rain: clamp(rain, 0, 1), wind: clamp(wind, 0, 1) }
+}
+
 // Each cloud lane's share of that speed: far clouds cross slower.
 var LANE_SPEED = [0.45, 0.68, 1.0]
 
@@ -1633,7 +1644,7 @@ if (typeof module !== "undefined") {
     parseForecast: parseForecast, parseLocation: parseLocation, forecastUrl: forecastUrl,
     moonPhase: moonPhase, moonPhaseKey: moonPhaseKey, moonGlyph: moonGlyph, solarDay: solarDay,
     arcPosition: arcPosition, celestial: celestial, sceneUniforms: sceneUniforms, bowShape: bowShape,
-    auroraFor: auroraFor, firefliesFor: firefliesFor,
+    auroraFor: auroraFor, firefliesFor: firefliesFor, soundLevels: soundLevels,
     deskPlacement: deskPlacement, placed: placed, deskWindows: deskWindows, bounds: bounds,
     frameMargins: frameMargins, shownWindows: shownWindows, skyWash: skyWash, titleBars: titleBars,
     ledgeStep: ledgeStep, ledgeSlots: ledgeSlots, LEDGES: LEDGES, ICICLE_MOST: ICICLE_MOST,

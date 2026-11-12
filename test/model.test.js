@@ -918,4 +918,22 @@ test("a sky turning from live to set by hand brings the lights in, and back out"
   assert.strictEqual(M.mixWeather(hand, live, 0.3).aurora, undefined)
 })
 
+test("the rain and the wind are as loud as there is of them, and snow is silent", () => {
+  const quiet = M.soundLevels(M.weatherFromCode(0, 5, 6, 250))
+  assert.deepStrictEqual(quiet, { rain: 0, wind: 0 })
+  const drizzle = M.soundLevels(M.manualWeather({ cover: 0.6, precip: 0.15, temperature: 14, wind: 5 }))
+  const pour = M.soundLevels(M.manualWeather({ cover: 0.9, precip: 0.95, temperature: 14, wind: 5 }))
+  assert.ok(drizzle.rain > 0 && drizzle.rain < 0.3 && pour.rain > 0.85 && pour.wind === 0)
+  // The same amount falling as snow makes no sound; with hail it is louder than rain alone.
+  assert.strictEqual(M.soundLevels(M.manualWeather({ cover: 0.9, precip: 0.95, temperature: -8, wind: 5 })).rain, 0)
+  const rain = M.manualWeather({ cover: 0.9, precip: 0.5, temperature: 14, wind: 5 })
+  const hail = M.manualWeather({ cover: 0.9, precip: 0.5, temperature: 14, wind: 5, hail: true })
+  assert.ok(M.soundLevels(hail).rain > M.soundLevels(rain).rain)
+  // Wind is heard from a stiff breeze up.
+  assert.strictEqual(M.soundLevels(M.manualWeather({ cover: 0.2, precip: 0, temperature: 14, wind: 8 })).wind, 0)
+  const gale = M.soundLevels(M.manualWeather({ cover: 0.2, precip: 0, temperature: 14, wind: 70 }))
+  assert.ok(gale.wind > 0.8 && gale.wind <= 1)
+  assert.deepStrictEqual(M.soundLevels(null), { rain: 0, wind: 0 })
+})
+
 console.log("ok: " + ran + " tests")

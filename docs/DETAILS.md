@@ -174,6 +174,15 @@ From the top:
     that never changes, over the wallpaper as it is.
 
   With both off, what is left is the frame.
+- **Sound**, a third switch beside them, off until asked for: rain as hard
+  as it is falling (hail louder, snow silent), wind from a stiff breeze up
+  and more in gusts, and thunder a moment after each strike. It is heard
+  only while the sky is up, comes and goes with it, and goes quiet when the
+  weather is switched off. `soundVolume` sets how loud. The sounds are
+  synthesised, not recorded (`tools/sounds.py` makes them), and playing
+  them needs Qt's multimedia module, which Omarchy's own apps bring with
+  them; on a machine without it the switch says so and nothing else is
+  affected.
 - **Corner info**, at one of three levels:
   - **Off**.
   - **Simple**: the temperature and what it is doing, top left, with the

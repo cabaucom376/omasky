@@ -29,7 +29,7 @@ ShellRoot {
 
   readonly property var scenes: ({
     rain:  { code: 63, hour: 15.5, temperature: 15, mode: "live", snowDepth: 0 },
-    night: { code: 1, hour: 22.6, temperature: 9, mode: "live", snowDepth: 0, phase: 0.42 },
+    night: { code: 1, hour: 22.6, temperature: 9, mode: "live", snowDepth: 0, phase: 0.42, sound: true },
     snow:  { code: 75, hour: 9.2, temperature: -6, mode: "manual", snowDepth: 18 },
     tune:  { code: 75, hour: 9.2, temperature: -6, mode: "manual", snowDepth: 22, tune: true },
     dusk:  { code: 2, hour: 18.3, temperature: 21, mode: "demo", snowDepth: 0 },
@@ -179,6 +179,9 @@ ShellRoot {
     function setDayNight(on) {}
     function setShowInfo(on) {}
     function setInfoLevel(level) {}
+    readonly property bool soundOn: shell.at.sound === true
+    readonly property bool soundMissing: false
+    function setSoundOn(on) {}
     function setHour(hour) {}
     function editCity() {}
     function cancelCity() {}
