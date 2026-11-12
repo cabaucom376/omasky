@@ -521,7 +521,9 @@ Rectangle {
       Item {
         id: ruler
         width: parent.width
-        height: Style.space(36) + strip.height
+        // The hour labels hang below the band and the forecast strip; the
+        // last few points keep them off the tiles under them.
+        height: Style.space(42) + strip.height
 
         readonly property real inset: panel.pad
         readonly property real span: width - inset * 2
