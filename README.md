@@ -64,20 +64,28 @@ clock.
 | Right click | The control panel, with the sky up or without it |
 | Middle click | Back to the real weather |
 
+The icon is the weather as it is now. When rain or snow is due to start
+within the hour it turns into an umbrella or a snowflake, and its tooltip
+says how long there is.
+
 <img src="docs/menu.png" alt="The control panel, folded and with the manual controls open" width="720">
 
 In the panel:
 
-- **A live miniature of the sky**, and under it a ruler of the day: drag it
-  to set the hour.
+- **A live miniature of the sky**, and under it a ruler of the day, with
+  the rain and snow forecast for each hour hanging from it. Drag it and the
+  sky goes to that hour of today, with the weather forecast for it.
 - **The place** the weather is for. Press it to set a city; Auto goes back
   to wherever you are.
-- **Weather** and **Day & night**, each switched on its own.
+- **Weather** and **Day & night**, each switched on its own, and
+  **Sound**: rain, wind and thunder to go with what you see. Off to begin
+  with.
 - **Corner info**: off, simple, or detailed, which adds how it feels, the
   wind, the humidity and a four-day forecast.
 - **Mode**: live, a demo of a whole day, or manual, with a slider for every
   part of the weather.
-- **Quality**: auto, low, medium, high or ultra.
+- **Quality**: auto, low, medium, high or ultra. On battery it draws one
+  level lower.
 
 ## From a terminal
 
@@ -86,11 +94,12 @@ In the panel:
     omarchy-shell omasky info detailed     # the corner info: off, simple or detailed
     omarchy-shell omasky weather off       # the weather on its own: on, off or toggle
     omarchy-shell omasky daynight off      # the sun, moon and the hour's light: on, off or toggle
+    omarchy-shell omasky sound on          # rain, wind and thunder to be heard: on, off or toggle
     omarchy-shell omasky quality high      # auto, low, medium, high or ultra
     omarchy-shell omasky demo              # a day and a night in a minute and a half; again to stop
     omarchy-shell omasky preview storm     # try a condition: rain, snow, blizzard, fog, hail, heat, ...
-    omarchy-shell omasky clock 21:30       # pin the sky to an hour; "now" lets it run
-    omarchy-shell omasky set precip 0.8    # a manual control: clouds, precip, fog, temperature, wind, hour, moon
+    omarchy-shell omasky clock 21:30       # the sky at that hour of today, with its forecast; "now" lets it run
+    omarchy-shell omasky set precip 0.8    # a manual control: clouds, precip, fog, temperature, wind, hour, moon, aurora, fireflies
     omarchy-shell omasky strike            # lightning, now
     omarchy-shell omasky live              # back to the real weather at the real time
     omarchy-shell omasky status
@@ -102,6 +111,7 @@ Set on the bar widget, for example `omarchy bar set omasky shrink 0.7 --json`.
 | Key | Default | |
 |---|---|---|
 | `quality` | `"auto"` | `auto` (by the machine), `low`, `medium`, `high` or `ultra` |
+| `easeOnBattery` | `true` | Draw one quality level lower on battery or in power-saver mode |
 | `shrink` | `0.78` | How much of the screen the windows keep each way, 0.4 to 0.94 |
 | `skyOpacity` | `0.9` | The most of the wallpaper the sky covers, in the worst weather |
 | `animate` | `true` | Glide in and out; `false` cuts |
@@ -109,15 +119,20 @@ Set on the bar widget, for example `omarchy bar set omasky shrink 0.7 --json`.
 | `infoDetail` | `false` | With them, the detail and the forecast |
 | `weather` | `true` | Clouds, what falls, fog, wind and heat |
 | `dayNight` | `true` | Sun, moon, stars and the sky's color by the hour |
+| `headsUp` | `true` | Warn on the bar icon when rain or snow is due within the hour |
+| `sound` | `false` | Play rain, wind and thunder while the sky is up |
+| `soundVolume` | `0.5` | How loud that is, 0 to 1 |
 | `refreshMinutes` | `15` | How often to ask for the weather while showing |
 | `unit` | `"auto"` | `"metric"` or `"imperial"` to override the locale |
 
 ## Privacy
 
-Omasky uses the network only while the sky or its control panel is
-showing. It asks `geo.omarchy.org` where you are, unless a city is set, and
+Omasky asks `geo.omarchy.org` where you are, unless a city is set, and
 Open-Meteo for the conditions there, with coordinates rounded to about a
-kilometre. A city typed into the panel goes to Open-Meteo's place search
+kilometre. It does so while the sky or its control panel is showing, and,
+for the warning on the bar icon, every twenty minutes or so the rest of
+the time. Set `headsUp` to `false` and it asks for nothing while nothing
+is on screen. A city typed into the panel goes to Open-Meteo's place search
 and nowhere else. It is saved as Omarchy's own weather location, so
 Omarchy's weather widget follows it too.
 

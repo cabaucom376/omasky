@@ -385,9 +385,11 @@ test("thaw, rainbows and a ring round the moon come from the right weather", () 
   const night = M.celestial(new Date(2026, 5, 1, 23, 0).getTime(), [], [], geometry, 40, 0.5)
   const scene = (sky, w) => M.sceneUniforms(palette, sky, w, geometry).scene
   const shower = M.manualWeather({ cover: 0.5, precip: 0.6, temperature: 16 })
-  // A shower with the sun low and out: a rainbow, on the far side of the sky from the sun.
+  // A shower with the sun low and out: a rainbow, arched over the middle of the
+  // screen and standing on the side of the sky away from the sun.
   const bow = scene(evening, shower)
-  assert.ok(bow.rainbow > 0.3 && Math.abs(bow.bowX - (1600 - evening.sun.x)) < 1e-9 && /^#[0-9a-f]{6}$/.test(bow.bowOuter))
+  assert.ok(bow.rainbow > 0.3 && bow.bowX === 800 && /^#[0-9a-f]{6}$/.test(bow.bowOuter))
+  assert.strictEqual(bow.bowSide, evening.sun.x > 800 ? -1 : 1)
   // Not at noon, not under a closed sky, not at night, not when it is snow.
   assert.ok(scene(noon, shower).rainbow < 0.05)
   assert.strictEqual(scene(evening, M.manualWeather({ cover: 1, precip: 0.6, temperature: 16 })).rainbow, 0)
@@ -695,6 +697,272 @@ test("the moon's glyph follows its phase round the icon font's twenty-eight", ()
   assert.strictEqual(M.moonGlyph(0.995), "\ue38d")
   assert.strictEqual(M.moonGlyph(1.25), M.moonGlyph(0.25))
   assert.strictEqual(M.moonGlyph("nope"), "\ue38d")
+})
+
+test("the rainbow arches over the desktop, with its feet in the margins beside it", () => {
+  const g = { width: 1728, height: 1126, margin: 190, deck: 242 }
+  const bow = M.bowShape(g, 1500)
+  // Its crown is in the sky above the desktop, on the middle of the screen.
+  assert.strictEqual(bow.x, 864)
+  const crown = bow.y - bow.radius
+  assert.ok(crown > 0 && crown < g.deck, "crown at " + crown)
+  // Level with the middle of the desktop it is out in the margins, not behind the windows.
+  const level = g.deck + (g.height - g.deck) * 0.55
+  const out = Math.sqrt(bow.radius * bow.radius - (bow.y - level) * (bow.y - level))
+  assert.ok(bow.x - out > 0 && bow.x - out < g.margin, "left foot at " + (bow.x - out))
+  assert.ok(bow.x + out > g.width - g.margin && bow.x + out < g.width)
+  // It stands away from the sun.
+  assert.strictEqual(bow.side, -1)
+  assert.strictEqual(M.bowShape(g, 200).side, 1)
+  // A scene that says nothing of its frame (the panel's miniature) still gets one that fits.
+  const small = M.bowShape({ width: 400, height: 200 }, 100)
+  assert.ok(small.radius > 0 && small.y - small.radius > 0 && small.y - small.radius < 200 * 0.21)
+  // And the scene is handed it.
+  const colors = M.parseThemeColors('mode = "dark"\nbackground = "#142620"\nforeground = "#dfede5"\n')
+  const sky = M.celestial(new Date(2026, 5, 1, 17, 0).getTime(), [], [], g, 40, 0.3)
+  const look = M.sceneUniforms(M.derivePalette(colors, {}), sky, M.weatherFromCode(61, 40, 10, 250), g).scene
+  assert.strictEqual(look.bowX, bow.x)
+  assert.ok(Math.abs(look.bowR - bow.radius) < 1e-9 && Math.abs(look.bowY - bow.y) < 1e-9)
+  assert.ok(look.bowSide === 1 || look.bowSide === -1)
+})
+
+test("on battery the quality comes down one level, and low stays low", () => {
+  assert.strictEqual(M.easedQuality("ultra"), "high")
+  assert.strictEqual(M.easedQuality("high"), "medium")
+  assert.strictEqual(M.easedQuality("medium"), "low")
+  assert.strictEqual(M.easedQuality("low"), "low")
+  // Anything it does not know is medium, as qualityFor has it.
+  assert.strictEqual(M.easedQuality("nonsense"), "low")
+  assert.ok(M.qualityFor(M.easedQuality("ultra")).pixel > M.qualityFor("ultra").pixel)
+})
+
+// A forecast with the hours in it: `count` of them from `from` (unix seconds).
+function hourly(from, count, fill) {
+  const cols = { time: [], weather_code: [], temperature_2m: [], apparent_temperature: [], relative_humidity_2m: [], precipitation: [],
+    precipitation_probability: [], cloud_cover: [], cloud_cover_low: [], cloud_cover_mid: [], cloud_cover_high: [],
+    wind_speed_10m: [], wind_direction_10m: [], wind_gusts_10m: [], visibility: [] }
+  for (let i = 0; i < count; i++) {
+    const h = Object.assign({ weather_code: 2, temperature_2m: 15, apparent_temperature: 14, relative_humidity_2m: 70, precipitation: 0,
+      precipitation_probability: 10, cloud_cover: 40, cloud_cover_low: 30, cloud_cover_mid: 10, cloud_cover_high: 0,
+      wind_speed_10m: 12, wind_direction_10m: 250, wind_gusts_10m: 25, visibility: 20000 }, fill ? fill(i) : {})
+    cols.time.push(from + i * 3600)
+    for (const k in h) cols[k].push(h[k])
+  }
+  return JSON.stringify({ utc_offset_seconds: 0, current: { weather_code: 1, temperature_2m: 17 }, hourly: cols })
+}
+
+test("the forecast asks for the hours, and reads them as it reads the present", () => {
+  const url = M.forecastUrl(38.72, -9.14)
+  assert.ok(/&hourly=weather_code,temperature_2m/.test(url) && /precipitation_probability/.test(url))
+  assert.ok(/&past_hours=24&forecast_hours=48/.test(url))
+  const from = 1794441600
+  const f = M.parseForecast(hourly(from, 30, i => i === 5 ? { weather_code: 63, precipitation: 2.4, precipitation_probability: 80, temperature_2m: 11 } : {}))
+  assert.strictEqual(f.hours.length, 30)
+  assert.strictEqual(f.hours[0].at, from * 1000)
+  assert.deepStrictEqual([f.hours[5].code, f.hours[5].precip, f.hours[5].chance, f.hours[5].temperature], [63, 2.4, 0.8, 11])
+  assert.strictEqual(f.hours[5].windSpeed, 12)
+  // No hours given is no hours, not a failure; and an hour with no code is left out.
+  assert.deepStrictEqual(M.parseForecast(JSON.stringify({ current: { weather_code: 1 } })).hours, [])
+  const holed = JSON.parse(hourly(from, 4))
+  holed.hourly.weather_code[2] = null
+  holed.hourly.precipitation[1] = "lots"
+  const g = M.parseForecast(JSON.stringify(holed))
+  assert.strictEqual(g.hours.length, 3)
+  assert.strictEqual(g.hours[1].precip, 0)
+})
+
+test("an hour's reading is the nearest hour given, and none when the forecast does not reach", () => {
+  const from = 1794441600
+  const f = M.parseForecast(hourly(from, 12, i => ({ temperature_2m: i })))
+  const at = h => from * 1000 + h * 3600000
+  assert.strictEqual(M.readingAt(f, at(3)).temperature, 3)
+  assert.strictEqual(M.readingAt(f, at(3.4)).temperature, 3)
+  assert.strictEqual(M.readingAt(f, at(3.6)).temperature, 4)
+  // An hour past either end is still that end; further than that is nothing.
+  assert.strictEqual(M.readingAt(f, at(11.9)).temperature, 11)
+  assert.strictEqual(M.readingAt(f, at(13.5)), null)
+  assert.strictEqual(M.readingAt(f, at(-2)), null)
+  assert.strictEqual(M.readingAt(null, at(3)), null)
+  assert.strictEqual(M.readingAt({}, at(3)), null)
+  // The sky is made from it the way it is from the present reading.
+  const r = M.readingAt(M.parseForecast(hourly(from, 3, () => ({ weather_code: 65, precipitation: 6 }))), at(1))
+  const w = M.weatherFromCode(r.code, r.cloudCover, r.windSpeed, r.windDirection, { temperature: r.temperature })
+  assert.ok(w.rain > 0.5 && w.key === "heavyRain")
+})
+
+test("the day's ruler gets what falls in each of its hours", () => {
+  const day = 1794441600000
+  // Hours are stamped at their end: the one stamped 15:00 is what fell from 14:00.
+  const f = M.parseForecast(hourly(day / 1000, 30, i => i === 15 ? { precipitation: 3, precipitation_probability: 90, weather_code: 63 }
+    : i === 23 ? { precipitation: 1, weather_code: 73, temperature_2m: -2 } : {}))
+  const strip = M.hourStrip(f, day)
+  assert.strictEqual(strip.length, 24)
+  assert.deepStrictEqual(strip[14], { amount: 3, chance: 0.9, snow: false })
+  assert.deepStrictEqual(strip[22], { amount: 1, chance: 0.1, snow: true })
+  assert.strictEqual(strip[3].amount, 0)
+  // A day the forecast only partly covers has gaps, and one it does not cover has nothing.
+  const late = M.hourStrip(f, day + 20 * 3600000)
+  assert.ok(late[2] !== null && late[23] === null)
+  assert.deepStrictEqual(M.hourStrip(f, day + 5 * 86400000), [])
+  assert.deepStrictEqual(M.hourStrip(null, day), [])
+  // A place whose hours fall on the half hour still lines up.
+  const half = M.parseForecast(hourly(day / 1000 + 1800, 26, i => i === 9 ? { precipitation: 2 } : {}))
+  assert.ok(M.hourStrip(half, day).some(e => e && e.amount === 2))
+  // How long a bar: nothing for nothing, something for drizzle, full by four millimetres.
+  assert.strictEqual(M.stripLength(0), 0)
+  assert.ok(M.stripLength(0.2) > 0.25 && M.stripLength(0.2) < 0.5)
+  assert.strictEqual(M.stripLength(8), 1)
+  assert.strictEqual(M.stripLength("x"), 0)
+})
+
+test("the bar icon is warned of what is about to start falling", () => {
+  const now = 1794493800000, q = 900000
+  const reading = (code, falls) => ({ code: code, soon: falls.map((mm, i) => ({ at: now + i * q, precip: mm, code: mm > 0 ? 61 : 2 })) })
+  // Dry now, rain in the quarter that begins in half an hour.
+  assert.deepStrictEqual(M.fallSoon(reading(2, [0, 0, 0, 0.4, 1.2, 0, 0, 0]), now), { minutes: 30, snow: false })
+  // In the very next quarter: any minute.
+  assert.deepStrictEqual(M.fallSoon(reading(2, [0, 0.3, 0, 0, 0, 0, 0, 0]), now), { minutes: 0, snow: false })
+  // Some minutes later it is nearer, to the nearest five.
+  assert.strictEqual(M.fallSoon(reading(2, [0, 0, 0, 0.4, 0, 0, 0, 0]), now + 8 * 60000).minutes, 20)
+  // Nothing on its way, or more than an hour off: nothing to say.
+  assert.strictEqual(M.fallSoon(reading(2, [0, 0, 0, 0, 0, 0, 0, 0]), now), null)
+  assert.strictEqual(M.fallSoon(reading(2, [0, 0, 0, 0, 0, 0, 0, 2]), now), null)
+  // Already raining: it is a warning of a change, not a report.
+  assert.strictEqual(M.fallSoon(reading(63, [1, 1, 1, 1, 1, 1, 1, 1]), now), null)
+  // Snow is told apart by the kind of weather.
+  const snow = { code: 3, soon: [{ at: now + 2 * q, precip: 0.5, code: 73 }] }
+  assert.deepStrictEqual(M.fallSoon(snow, now), { minutes: 15, snow: true })
+  // A code that says it falls counts even where no amount is given.
+  assert.strictEqual(M.fallSoon({ code: 1, soon: [{ at: now + q, precip: 0, code: 80 }] }, now).minutes, 0)
+  assert.strictEqual(M.fallSoon(null, now), null)
+  assert.strictEqual(M.fallSoon({ code: 1 }, now), null)
+  assert.ok(M.codeFalls(51) && M.codeFalls(67) && M.codeFalls(82) && M.codeFalls(95) && !M.codeFalls(3) && !M.codeFalls(45))
+  assert.ok(M.codeSnows(71) && M.codeSnows(86) && !M.codeSnows(61))
+})
+
+test("the forecast asks for the next two hours by the quarter and reads them", () => {
+  assert.ok(/&minutely_15=precipitation,weather_code&past_minutely_15=0&forecast_minutely_15=8/.test(M.forecastUrl(38.72, -9.14)))
+  const f = M.parseForecast(JSON.stringify({ current: { weather_code: 2 },
+    minutely_15: { time: [1794493800, 1794494700, "x", 1794496500], precipitation: [0, 0.3, 1, null], weather_code: [2, 61, 61, 2] } }))
+  assert.deepStrictEqual(f.soon, [
+    { at: 1794493800000, precip: 0, code: 2 }, { at: 1794494700000, precip: 0.3, code: 61 }, { at: 1794496500000, precip: 0, code: 2 }])
+  assert.deepStrictEqual(M.parseForecast(JSON.stringify({ current: { weather_code: 2 } })).soon, [])
+})
+
+test("the northern lights keep to high latitudes, and to some nights", () => {
+  // Nowhere near the equator, on any night.
+  for (let night = 0; night < 400; night++) {
+    assert.strictEqual(M.auroraFor(40, night), 0)
+    assert.strictEqual(M.auroraFor(-35, night), 0)
+  }
+  // Far north, most nights but not all; further south, fewer; and the far south has them as the far north does.
+  const nights = lat => { let n = 0; for (let night = 20000; night < 20400; night++) if (M.auroraFor(lat, night) > 0) n++; return n }
+  assert.ok(nights(68) > 250 && nights(68) < 400, "at 68: " + nights(68))
+  assert.ok(nights(57) > 40 && nights(57) < nights(68), "at 57: " + nights(57))
+  assert.ok(nights(-68) > 250)
+  // A night is one thing from dusk to dawn, and a strength worth seeing when it comes.
+  assert.strictEqual(M.auroraFor(68, 20001), M.auroraFor(68, 20001))
+  for (let night = 20000; night < 20050; night++) { const a = M.auroraFor(68, night); assert.ok(a === 0 || (a >= 0.45 && a <= 1)) }
+  assert.strictEqual(M.auroraFor(null, 1), 0)
+  assert.strictEqual(M.auroraFor("north", 1), 0)
+  // Which night it is does not change at midnight.
+  const g = { width: 1600, height: 1000, margin: 200, deck: 180 }
+  const late = M.celestial(new Date(2026, 0, 10, 23, 30).getTime(), [], [], g, 68)
+  const early = M.celestial(new Date(2026, 0, 11, 2, 0).getTime(), [], [], g, 68)
+  assert.strictEqual(late.nightOf, early.nightOf)
+  assert.strictEqual(late.latitude, 68)
+  assert.strictEqual(M.celestial(Date.now(), [], [], g, undefined).latitude, null)
+})
+
+test("the lights and the fireflies want the dark, and the right sky", () => {
+  const palette = M.derivePalette({ mode: "dark", background: "#142620", foreground: "#dfede5", green: "#9ece6a", magenta: "#bb9af7", yellow: "#e0af68" }, {})
+  const g = { width: 1600, height: 1000, margin: 200, deck: 180, desk: null }
+  const night = M.celestial(new Date(2026, 5, 1, 23, 30).getTime(), [], [], g, 40)
+  const noon = M.celestial(new Date(2026, 5, 1, 12, 0).getTime(), [], [], g, 40)
+  const scene = (sky, w) => M.sceneUniforms(palette, sky, w, g).scene
+  const clear = M.manualWeather({ cover: 0.05, precip: 0, temperature: 22, wind: 6, aurora: true, fireflies: true })
+  // By hand, on a clear warm night: both, in the theme's colors.
+  const both = scene(night, clear)
+  assert.ok(both.aurora > 0.8 && both.fireflies > 0.8)
+  assert.ok(/^#[0-9a-f]{6}$/.test(both.auroraLow) && /^#[0-9a-f]{6}$/.test(both.auroraHigh) && /^#[0-9a-f]{6}$/.test(both.fireflyColor))
+  // Not by day, whatever is switched on.
+  assert.ok(scene(noon, clear).aurora < 0.01 && scene(noon, clear).fireflies < 0.01)
+  // The lights are lost behind a closed sky; the fireflies are not.
+  const closed = scene(night, M.manualWeather({ cover: 1, precip: 0, temperature: 22, wind: 6, aurora: true, fireflies: true }))
+  assert.ok(closed.aurora < 0.01 && closed.fireflies > 0.8)
+  // Switched off by hand they are off.
+  const off = scene(night, M.manualWeather({ cover: 0.05, precip: 0, temperature: 22, wind: 6 }))
+  assert.ok(off.aurora === 0 && off.fireflies === 0)
+  // Left to the weather, fireflies come with a warm, still, dry night and not otherwise.
+  const live = (t, extra) => scene(night, Object.assign(M.weatherFromCode(0, 5, 6, 250, { temperature: t }), extra || {})).fireflies
+  assert.ok(live(23) > 0.8)
+  assert.strictEqual(live(8), 0)
+  assert.ok(M.firefliesFor(M.weatherFromCode(63, 90, 6, 250, { temperature: 23 })) < 0.05)
+  assert.ok(M.firefliesFor(M.weatherFromCode(0, 5, 60, 250, { temperature: 23 })) < 0.05)
+  assert.strictEqual(M.firefliesFor(M.weatherFromCode(0, 5, 6, 250)), 0)
+  // And at forty degrees the live sky has no lights, on any night.
+  assert.strictEqual(scene(night, M.weatherFromCode(0, 5, 6, 250, { temperature: 10 })).aurora, 0)
+  // With the hour switched out of the sky there is no night for either.
+  const steady = M.steadySky(night, 1)
+  assert.ok(scene(steady, clear).aurora < 0.01 && scene(steady, clear).fireflies < 0.01)
+})
+
+test("a sky turning from live to set by hand brings the lights in, and back out", () => {
+  const live = M.weatherFromCode(0, 5, 6, 250, { temperature: 20 })
+  const hand = M.manualWeather({ cover: 0.05, precip: 0, temperature: 20, wind: 6, aurora: true })
+  // Toward a hand-set sky they are part of what it turns to.
+  const part = M.mixWeather(hand, M.manualWeather({ cover: 0.05, precip: 0, temperature: 20, wind: 6 }), 0.5)
+  assert.ok(part.aurora > 0.4 && part.aurora < 0.6 && part.settled === false)
+  assert.strictEqual(M.mixWeather(live, hand, 1).aurora, 1)
+  // Back toward the live sky they are left out again, for the sky to decide.
+  assert.strictEqual(M.mixWeather(hand, live, 0.3).aurora, undefined)
+})
+
+test("the rain and the wind are as loud as there is of them, and snow is silent", () => {
+  const quiet = M.soundLevels(M.weatherFromCode(0, 5, 6, 250))
+  assert.deepStrictEqual(quiet, { rain: 0, wind: 0 })
+  const drizzle = M.soundLevels(M.manualWeather({ cover: 0.6, precip: 0.15, temperature: 14, wind: 5 }))
+  const pour = M.soundLevels(M.manualWeather({ cover: 0.9, precip: 0.95, temperature: 14, wind: 5 }))
+  assert.ok(drizzle.rain > 0 && drizzle.rain < 0.3 && pour.rain > 0.85 && pour.wind === 0)
+  // The same amount falling as snow makes no sound; with hail it is louder than rain alone.
+  assert.strictEqual(M.soundLevels(M.manualWeather({ cover: 0.9, precip: 0.95, temperature: -8, wind: 5 })).rain, 0)
+  const rain = M.manualWeather({ cover: 0.9, precip: 0.5, temperature: 14, wind: 5 })
+  const hail = M.manualWeather({ cover: 0.9, precip: 0.5, temperature: 14, wind: 5, hail: true })
+  assert.ok(M.soundLevels(hail).rain > M.soundLevels(rain).rain)
+  // Wind is heard from a stiff breeze up.
+  assert.strictEqual(M.soundLevels(M.manualWeather({ cover: 0.2, precip: 0, temperature: 14, wind: 8 })).wind, 0)
+  const gale = M.soundLevels(M.manualWeather({ cover: 0.2, precip: 0, temperature: 14, wind: 70 }))
+  assert.ok(gale.wind > 0.8 && gale.wind <= 1)
+  assert.deepStrictEqual(M.soundLevels(null), { rain: 0, wind: 0 })
+})
+
+test("every language has every string, with the same blanks to fill", () => {
+  const fs = require("fs")
+  const dir = path.join(__dirname, "..", "i18n")
+  const english = JSON.parse(fs.readFileSync(path.join(dir, "en.json"), "utf8"))
+  const blanks = text => (String(text).match(/%\d/g) || []).sort().join(" ")
+  const files = fs.readdirSync(dir).filter(name => name.endsWith(".json") && name !== "en.json")
+  assert.ok(files.length >= 5, "catalogs: " + files.join(", "))
+  for (const name of files) {
+    const catalog = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"))
+    assert.deepStrictEqual(Object.keys(catalog).sort(), Object.keys(english).sort(), name + " has other keys than en.json")
+    for (const key in english) {
+      assert.ok(typeof catalog[key] === "string" && catalog[key].trim() !== "", name + ": " + key + " is empty")
+      assert.strictEqual(blanks(catalog[key]), blanks(english[key]), name + ": " + key)
+      // Nothing that a text field would take for markup.
+      assert.ok(!/[<>]/.test(catalog[key]), name + ": " + key)
+    }
+  }
+})
+
+test("the panel's weather icon never has the sun or moon in it", () => {
+  const sunOrMoon = ["\ue30d", "\ue32b", "\ue302", "\ue32e", "\ue308", "\ue333", "\ue30a", "\ue327", "\ue346"]
+  for (const code of [0, 1, 2, 3, 45, 51, 61, 65, 71, 75, 66, 95])
+    for (const night of [false, true])
+      assert.ok(!sunOrMoon.includes(M.cloudGlyph(M.weatherFromCode(code, null, 10, 250))), "code " + code)
+  assert.strictEqual(M.cloudGlyph(M.weatherFromCode(0, 0, 5, 250)), "\ue33d")
+  assert.strictEqual(M.cloudGlyph(M.weatherFromCode(95, 90, 5, 250)), "\ue31d")
+  assert.strictEqual(M.cloudGlyph(null), "\ue33d")
 })
 
 console.log("ok: " + ran + " tests")

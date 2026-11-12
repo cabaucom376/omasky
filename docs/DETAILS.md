@@ -40,8 +40,15 @@ length, how it is kept smooth, and how to work on it.
   is. **A really hot day** bends the background, the wallpaper and the sky
   over it, in heat waves that rise off the ground; the windows stay straight.
 - **And now and then:** a rainbow when a shower is falling and the sun is
-  low, on the far side of the sky from it; a ring round the moon through
-  thin high cloud; a shooting star on a clear night.
+  low, arching over the windows from the side of the sky away from it; a
+  ring round the moon through thin high cloud; a shooting star on a clear
+  night. **Fireflies** on a warm, still, dry night, down beside the windows
+  and along the ground, never up in the sky. And where the place is far enough from the equator,
+  **the northern lights** (or the southern) on some clear nights: curtains
+  across the top of the sky, in the theme's green and violet. They are
+  never seen below about fifty degrees and are there most nights from the
+  middle sixties up; a night either has them or does not, from dusk to
+  dawn. In manual mode both are switches, to be had anywhere.
 - **The weather is not drawn on your windows.** It lands on them, lies on
   them, hangs beside them and runs off them, but what is in a window is
   left as it is: no rain across it, no fog over it. The one thing that
@@ -96,6 +103,21 @@ away.
 Nothing you do in the workspace closes the sky. **The bar icon, or
 `omarchy-shell omasky toggle`, brings the desktop back.**
 
+## The bar icon
+
+The icon in the bar is the weather as it is now, by day or by night. When
+rain or snow is due to start within the hour it turns into an umbrella or a
+snowflake, and its tooltip says how long there is ("Rain in about 20 min").
+It goes by the next two hours of the forecast, a quarter of an hour at a
+time, and it is a warning of a change: once it is coming down the icon is
+simply the weather again.
+
+For that the weather is read while the sky is down, which nothing else
+needs: every twenty minutes at the most often (or less often, if
+`refreshMinutes` is longer), and once shortly after the shell starts. Set
+`headsUp` to `false` to switch the warning off, and with it every request
+made while nothing is on screen.
+
 ## On a key, and in the Omarchy menu
 
 To put the sky on a key, add a line to
@@ -128,8 +150,17 @@ From the top:
   on. **Auto** goes back to wherever this network is. It is Omarchy's own
   weather location, the one its weather widget uses, so the two agree.
 - **The day, as a ruler.** The twenty-four hours with the day lit between
-  sunrise and sunset and a needle at the hour. Drag it to set the hour;
-  **Real time** puts it back. The day is today's real one, with the sunrise
+  sunrise and sunset and a needle at the hour. Hanging from it is the
+  forecast: a bar under each hour in which something falls, longer the more
+  of it, fainter the less likely, pale where it is snow. **Drag it and the
+  sky goes to that hour of today, and the weather with it**: live, what is
+  shown is the forecast for the hour (or, for an hour gone by, what it was
+  doing then), with the temperature, the wind and the rest to match, and
+  the panel and the corner of the sky say so. **Real time** puts it back.
+  In manual mode the ruler sets the hour alone and the weather stays as
+  set. `omarchy-shell omasky clock 17:00` does the same from a terminal, and
+  `timelapse` runs the day's whole forecast through the sky in a minute.
+  The day is today's real one, with the sunrise
   and sunset the forecast gives, in every mode but the demo, so the sun and
   moon are in the same place at the same hour whether the sky is live or
   manual. The demo keeps a day of its own, half past six to half past
@@ -143,6 +174,15 @@ From the top:
     that never changes, over the wallpaper as it is.
 
   With both off, what is left is the frame.
+- **Sound**, a third switch beside them, off until asked for: rain as hard
+  as it is falling (hail louder, snow silent), wind from a stiff breeze up
+  and more in gusts, and thunder a moment after each strike. It is heard
+  only while the sky is up, comes and goes with it, and goes quiet when the
+  weather is switched off. `soundVolume` sets how loud. The sounds are
+  synthesised, not recorded (`tools/sounds.py` makes them), and playing
+  them needs Qt's multimedia module, which Omarchy's own apps bring with
+  them; on a machine without it the switch says so and nothing else is
+  affected.
 - **Corner info**, at one of three levels:
   - **Off**.
   - **Simple**: the temperature and what it is doing, top left, with the
@@ -160,7 +200,9 @@ From the top:
 - **Quality**: auto, low, medium, high or ultra (below).
 - **Manual controls**, there only while the mode is Manual: presets, then sliders for
   clouds, precipitation, temperature, fog, wind (either way) and the moon's
-  phase, switches for thunder and hail, and a button to strike now. There is
+  phase. A slider moved off the real weather shows ↺ by its value: press the
+  value, or double-click the track, and it goes back to the real one (for the
+  moon, its real phase), switches for thunder and hail, and a button to strike now. There is
   no rain or snow slider: precipitation says how hard, temperature says
   what, and the rest (melting, icicles, heat waves) follows from it. It also
   shows frames a second and how the last glide went. Touching anything here
@@ -176,7 +218,7 @@ From the top:
 | Pixel of rain, snow, stars, lightning | 5 | 4 | 4 | 4 |
 | Weather in front of the windows | no | yes | yes | yes |
 | Heat waves bend the background on a hot day | no | yes | yes | yes |
-| Hail, gusts, a rainbow, a moon ring, shooting stars | no | yes | yes | yes |
+| Hail, gusts, a rainbow, a moon ring, shooting stars, fireflies, the northern lights | no | yes | yes | yes |
 | Hail bouncing off windows, icicles, meltwater dripping | no | no | yes | yes |
 | Rain landing on windows, running off; snow piling on them | no | no | yes | yes |
 | A second sheet of rain and of snow | no | no | no | yes |
@@ -199,6 +241,12 @@ has: low for a software renderer, two cores or under 3.5 GiB; medium for a
 virtual machine's GPU, under six cores or under 7 GiB; high otherwise. It
 never picks ultra. Choosing one in the panel keeps it, and Auto there goes
 back to the machine's own.
+
+On battery, or with the power-saver profile on, the sky is drawn one level
+lower than the one set, and comes back up when the power does. The panel
+marks the level it is drawing at, and nothing is compiled for the change:
+the level is a number the shaders are handed. Set `easeOnBattery` to `false`
+to keep the level as it is set.
 
 ## How it stays smooth
 
@@ -247,6 +295,18 @@ milliseconds from the request to staging, first frame and the start of the
 glide; `glide` is frames drawn and the slowest one; `hitch` is the slowest
 frame of the last few seconds. The panel's manual controls show the same.
 
+## Languages
+
+The panel, the corner of the sky and the bar icon's tooltip follow the
+language picked under Omarchy's Setup > Language. The strings are in
+`i18n/`, one file to a language: English, Danish, German, Spanish, French,
+Italian, Japanese, Dutch, Polish, Portuguese, Swedish and Simplified
+Chinese. A language without a file, and any string a file leaves out, is
+shown in English. To add one, copy `i18n/en.json` to the language's code
+(`fi.json`, `pt-BR.json`) and translate the values; the test checks that
+every file has every string. Keep the weather presets' names short: they
+sit in small tiles.
+
 ## Working on it
 
 The repository is the plugin: `manifest.json` and the code are at the top,
@@ -260,6 +320,8 @@ working on it and are not loaded by the shell.
     tools/sheet.sh out.png 2 "--weather storm --hour 16 --flash 0.9" "--weather snow --hour 21 --windows two"
     tools/panel.sh out.png rain,night,tune   # draw the control panel offscreen, in a few states
     tools/icon.py icon docs/icon.svg icon.ppm # draw the icon again, or `social` for the banner (see the top of the file)
+    tools/shader-size.sh          # how big each compiled shader is, without building it on the GPU
+    tools/sounds.py               # make the rain, wind and thunder again
     omarchy plugin validate .     # what `omarchy plugin add` will check
 
 `tools/dev-load.sh` is for while the code is changing. It puts the code

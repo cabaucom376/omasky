@@ -184,7 +184,9 @@ Rectangle {
       Item {
         id: facts
         width: parent.width
-        height: said.implicitHeight + Style.space(18)
+        // As tall as the taller side: the time can have a line over it (a
+        // forecast) and a chip under it (the way back to the real time).
+        height: Math.max(said.implicitHeight, clock.implicitHeight) + Style.space(18)
 
         Column {
           id: said
@@ -426,6 +428,19 @@ Rectangle {
           anchors.verticalCenter: parent.verticalCenter
           spacing: Style.space(4)
 
+          // Over the hour, when what is shown is that hour's forecast and
+          // not the weather now.
+          Text {
+            anchors.right: parent.right
+            visible: panel.service.hourReading !== null
+            textFormat: Text.PlainText
+            text: panel.words.t(panel.service.forecastAhead ? "panel.forecast" : "panel.earlier").toUpperCase()
+            color: panel.accent
+            font.family: Style.font.family
+            font.pixelSize: Style.font.caption
+            font.letterSpacing: 1.2
+          }
+
           Text {
             anchors.right: parent.right
             textFormat: Text.PlainText
@@ -508,7 +523,9 @@ Rectangle {
       Item {
         id: ruler
         width: parent.width
-        height: Style.space(36)
+        // The hour labels hang below the band and the forecast strip; the
+        // last few points keep them off the tiles under them.
+        height: Style.space(42) + strip.height
 
         readonly property real inset: panel.pad
         readonly property real span: width - inset * 2
@@ -519,6 +536,11 @@ Rectangle {
         // by the same sunrise and sunset, wherever the place is.
         readonly property double dayStart: Model.startOfDay(panel.service.now)
         readonly property var light: Model.dayBand(dayStart, panel.service.sunrises, panel.service.sunsets, 144)
+        // What is forecast to fall in each hour of it (the demo's day is
+        // its own, and has no forecast).
+        readonly property var falls: panel.service.mode !== "demo" ? Model.hourStrip(panel.service.forecast, dayStart) : []
+        readonly property color rainTone: Model.toHex(panel.service.palette.rain)
+        readonly property color snowTone: Model.toHex(panel.service.palette.snow)
 
         opacity: panel.service.dayNight ? 1 : 0.4
         Behavior on opacity { NumberAnimation { duration: Style.duration(200) } }
@@ -552,6 +574,33 @@ Rectangle {
           }
         }
 
+        // The forecast, hanging from the day: a bar under each hour in which
+        // something falls, longer the more of it, fainter the less likely,
+        // pale where it is snow.
+        Item {
+          id: strip
+          x: ruler.inset
+          y: band.y + band.height
+          width: ruler.span
+          height: Style.space(8)
+
+          Repeater {
+            model: ruler.falls
+
+            Rectangle {
+              required property var modelData
+              required property int index
+              readonly property real slot: strip.width / 24
+              visible: !!modelData && height > 0
+              x: Math.round(index * slot) + 1
+              width: Math.max(1, Math.round((index + 1) * slot) - Math.round(index * slot) - 2)
+              height: modelData ? Math.round((strip.height - 1) * Model.stripLength(modelData.amount)) : 0
+              color: modelData && modelData.snow ? ruler.snowTone : ruler.rainTone
+              opacity: modelData && modelData.chance !== null ? 0.4 + 0.6 * modelData.chance : 0.85
+            }
+          }
+        }
+
         Repeater {
           model: [0, 6, 12, 18, 24]
 
@@ -559,7 +608,7 @@ Rectangle {
             id: tick
             required property int modelData
             x: ruler.inset + ruler.span * modelData / 24
-            y: band.y + band.height
+            y: band.y + band.height + strip.height
 
             Rectangle {
               x: tick.modelData === 24 ? -1 : 0
@@ -611,7 +660,7 @@ Rectangle {
           cursorShape: Qt.PointingHandCursor
           function set(x) {
             var hour = (x - ruler.inset) / ruler.span * 24
-            panel.service.setManual("hour", Math.max(0, Math.min(23.99, hour)))
+            panel.service.setHour(Math.max(0, Math.min(23.99, hour)))
           }
           onPressed: function(mouse) { set(mouse.x) }
           onPositionChanged: function(mouse) { if (pressed) set(mouse.x) }
@@ -632,11 +681,13 @@ Rectangle {
           id: switches
           width: parent.width
           spacing: Style.space(8)
-          readonly property real each: (width - spacing) / 2
+          readonly property real each: (width - spacing * 2) / 3
 
+          // The weather by a cloud, so that it never shows the same sun or
+          // moon as the hour's tile beside it.
           Tile {
             width: switches.each
-            glyph: panel.service.glyph
+            glyph: Model.cloudGlyph(panel.service.targetWeather)
             text: panel.words.t("panel.weather")
             on: panel.service.weatherOn
             onPicked: panel.service.setWeatherOn(!panel.service.weatherOn)
@@ -647,6 +698,16 @@ Rectangle {
             text: panel.words.t("panel.dayNight")
             on: panel.service.dayNight
             onPicked: panel.service.setDayNight(!panel.service.dayNight)
+          }
+          // Rain, wind and thunder to be heard as well as seen. Dimmed where
+          // the machine has nothing to play it with.
+          Tile {
+            width: switches.each
+            glyph: panel.service.soundOn ? "\uf028" : "\uf026"
+            text: panel.words.t(panel.service.soundMissing ? "panel.soundMissing" : "panel.sound")
+            on: panel.service.soundOn && !panel.service.soundMissing
+            opacity: panel.service.soundMissing ? 0.5 : 1
+            onPicked: panel.service.setSoundOn(!panel.service.soundOn)
           }
         }
 
@@ -701,11 +762,15 @@ Rectangle {
           width: parent.width
           spacing: Style.space(6)
 
-          Heading { text: panel.words.t("panel.quality") }
+          Heading {
+            text: panel.words.t("panel.quality") + (panel.service.savingPower ? "  ·  " + panel.words.t("panel.savingPower") : "")
+          }
           Segments {
-            value: panel.service.qualityAuto ? "auto" : panel.service.quality.name
-            // Left to itself, what it has settled on for this machine.
-            echo: panel.service.qualityAuto ? panel.service.quality.name : ""
+            value: panel.service.qualityAuto ? "auto" : panel.service.qualityChoice
+            // What it is drawing at when that is not the level picked: left
+            // to itself, what it has settled on for this machine; and on
+            // battery, a level under the one picked.
+            echo: panel.service.qualityAuto || panel.service.quality.name !== panel.service.qualityChoice ? panel.service.quality.name : ""
             options: [
               { value: "auto", label: panel.words.t("panel.auto") },
               { value: "low", label: panel.words.t("panel.low") },
@@ -776,6 +841,9 @@ Rectangle {
                 labelWidth: panel.labelWidth
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.clouds"); value: panel.manual.cover; valueText: panel.percent(panel.manual.cover)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("cover")
+                onReset: panel.service.resetSlider("cover")
                 onMoved: function(v) { panel.service.setManual("cover", v) }
               }
               // How hard it comes down, and how warm it is. The warmth is what
@@ -785,6 +853,9 @@ Rectangle {
                 labelWidth: panel.labelWidth
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.precip"); value: panel.manual.precip; valueText: panel.percent(panel.manual.precip)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("precip")
+                onReset: panel.service.resetSlider("precip")
                 onMoved: function(v) { panel.service.setManual("precip", v) }
               }
               Fader {
@@ -792,12 +863,18 @@ Rectangle {
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.temperature"); from: -15; to: 45; notch: 0
                 value: panel.manual.temperature; valueText: panel.degrees(panel.manual.temperature)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("temperature")
+                onReset: panel.service.resetSlider("temperature")
                 onMoved: function(v) { panel.service.setManual("temperature", v) }
               }
               Fader {
                 labelWidth: panel.labelWidth
                 muted: !panel.service.weatherOn
                 label: panel.words.t("panel.fog"); value: panel.manual.fog; valueText: panel.percent(panel.manual.fog)
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("fog")
+                onReset: panel.service.resetSlider("fog")
                 onMoved: function(v) { panel.service.setManual("fog", v) }
               }
               // It blows either way: the track fills out from the middle.
@@ -807,6 +884,9 @@ Rectangle {
                 label: panel.words.t("panel.wind"); from: -100; to: 100; origin: 0; notch: 0
                 value: panel.manual.wind
                 valueText: (panel.manual.wind < 0 ? "← " : "→ ") + Commons.I18n.formatNumber(Math.abs(Math.round(panel.manual.wind)))
+                // Moved off the real weather, its value offers the way back.
+                canReset: panel.service.offReal("wind")
+                onReset: panel.service.resetSlider("wind")
                 onMoved: function(v) { panel.service.setManual("wind", v) }
               }
               Fader {
@@ -815,12 +895,20 @@ Rectangle {
                 label: panel.words.t("panel.moon"); from: 0; to: 1
                 value: panel.manual.phase < 0 ? Model.moonPhase(panel.service.now) : panel.manual.phase
                 valueText: panel.manual.phase < 0 ? panel.words.t("panel.real") : panel.percent(0.5 - 0.5 * Math.cos(2 * Math.PI * panel.manual.phase))
+                // Set by hand, the way back to the real moon is right here:
+                // its value, or a double click on its track.
+                canReset: panel.manual.phase >= 0
                 onMoved: function(v) { panel.service.setManual("phase", Math.min(v, 0.999)) }
+                onReset: panel.service.setManual("phase", -1)
               }
             }
 
+            // The events. Kept off the slider above, as the tiles are kept
+            // off the ruler, and wrapping onto a second line where a
+            // language's words are long.
             Flow {
               width: parent.width
+              topPadding: Style.space(6)
               spacing: Style.space(6)
 
               Chip {
@@ -832,10 +920,15 @@ Rectangle {
                 onPicked: panel.service.setManual("hail", !panel.manual.hail)
               }
               Chip { text: " " + panel.words.t("panel.strike"); onPicked: panel.service.strike() }
+              // What only some nights have, to be had on any: they show
+              // after dark, the lights in an open sky.
               Chip {
-                visible: panel.manual.phase >= 0
-                text: "↺ " + panel.words.t("panel.realMoon")
-                onPicked: panel.service.setManual("phase", -1)
+                text: panel.words.t("panel.aurora"); on: panel.manual.aurora === true
+                onPicked: panel.service.setManual("aurora", !panel.manual.aurora)
+              }
+              Chip {
+                text: panel.words.t("panel.fireflies"); on: panel.manual.fireflies === true
+                onPicked: panel.service.setManual("fireflies", !panel.manual.fireflies)
               }
             }
 
@@ -1127,7 +1220,11 @@ Rectangle {
     property bool muted: false
     // How wide the name is given: the panel's, so every track starts in line.
     property real labelWidth: Style.space(70)
+    // Whether there is something to go back to: then the value says so with
+    // a ↺ and a press on it (or a double click on the track) asks for it.
+    property bool canReset: false
     signal moved(real value)
+    signal reset()
 
     readonly property color ink: Commons.Color.popups.text
     readonly property color accent: Commons.Color.accent
@@ -1210,6 +1307,7 @@ Rectangle {
         }
         onPressed: function(mouse) { set(mouse.x) }
         onPositionChanged: function(mouse) { if (pressed) set(mouse.x) }
+        onDoubleClicked: if (fader.canReset) fader.reset()
       }
     }
 
@@ -1217,14 +1315,25 @@ Rectangle {
       id: readout
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
-      width: Style.space(52)
+      // Room for the longest of them ("↺ ← 100"), and never cut short if
+      // one is longer: the track gives way instead.
+      width: Math.max(Style.space(68), implicitWidth)
       horizontalAlignment: Text.AlignRight
       textFormat: Text.PlainText
-      text: fader.valueText
-      color: fader.ink
-      opacity: 0.75
+      text: (fader.canReset ? "↺ " : "") + fader.valueText
+      color: fader.canReset && resetArea.containsMouse ? fader.accent : fader.ink
+      opacity: fader.canReset && resetArea.containsMouse ? 1 : 0.75
       font.family: Style.font.family
       font.pixelSize: Style.font.bodySmall
+
+      MouseArea {
+        id: resetArea
+        anchors.fill: parent
+        enabled: fader.canReset
+        hoverEnabled: true
+        cursorShape: Qt.PointingHandCursor
+        onClicked: fader.reset()
+      }
     }
   }
 }

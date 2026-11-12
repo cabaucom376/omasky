@@ -29,12 +29,14 @@ ShellRoot {
 
   readonly property var scenes: ({
     rain:  { code: 63, hour: 15.5, temperature: 15, mode: "live", snowDepth: 0 },
-    night: { code: 1, hour: 22.6, temperature: 9, mode: "live", snowDepth: 0, phase: 0.42 },
+    night: { code: 1, hour: 22.6, temperature: 9, mode: "live", snowDepth: 0, phase: 0.42, sound: true },
     snow:  { code: 75, hour: 9.2, temperature: -6, mode: "manual", snowDepth: 18 },
     tune:  { code: 75, hour: 9.2, temperature: -6, mode: "manual", snowDepth: 22, tune: true },
     dusk:  { code: 2, hour: 18.3, temperature: 21, mode: "demo", snowDepth: 0 },
     storm: { code: 95, hour: 13, temperature: 18, mode: "live", snowDepth: 0, flash: 0.7 },
     clear: { code: 0, hour: 11, temperature: 24, mode: "live", snowDepth: 0 },
+    forecast: { code: 63, hour: 16, temperature: 14, mode: "live", snowDepth: 0, forecast: true, detail: true },
+    battery: { code: 2, hour: 10, temperature: 17, mode: "live", snowDepth: 0, battery: true },
     alone: { code: 2, hour: 16, temperature: 19, mode: "live", snowDepth: 0, alone: true },
     noweather: { code: 63, hour: 20.5, temperature: 15, mode: "live", snowDepth: 0, weather: false, phase: 0.3 },
     nocycle: { code: 2, hour: 22, temperature: 15, mode: "live", snowDepth: 0, cycle: false, info: false, tune: true, auto: true },
@@ -46,7 +48,8 @@ ShellRoot {
     readout: { code: 3, hour: 14, temperature: 18, mode: "live", snowDepth: 0, detail: true, readout: "stacked" },
     "readout-wide": { code: 61, hour: 21, temperature: 9, mode: "live", snowDepth: 0, detail: true, readout: "wide" },
     "readout-simple": { code: 3, hour: 14, temperature: 18, mode: "live", snowDepth: 0, readout: "stacked" },
-    "readout-demo": { code: 75, hour: 9, temperature: -6, mode: "demo", snowDepth: 0, detail: true, readout: "stacked" }
+    "readout-demo": { code: 75, hour: 9, temperature: -6, mode: "demo", snowDepth: 0, detail: true, readout: "stacked" },
+    "readout-forecast": { code: 63, hour: 16, temperature: 14, mode: "live", snowDepth: 0, detail: true, forecast: true, readout: "stacked" }
   })
   readonly property var at: scenes[scene] || scenes.rain
 
@@ -93,6 +96,17 @@ ShellRoot {
     // A reading with the detail in it and five days of it.
     readonly property var forecast: ({
       feels: shell.at.temperature - 1.4, humidity: 71, windSpeed: 11.2, offset: 0,
+      // Today by the hour: showers through the afternoon, snow late on.
+      hours: (function() {
+        var start = Model.startOfDay(Date.now()), out = []
+        for (var h = 1; h <= 24; h++) {
+          var fall = h >= 13 && h <= 18 ? [0.3, 1.2, 3.6, 5.5, 2.0, 0.6][h - 13] : (h >= 22 ? 0.9 : 0)
+          out.push({ at: start + h * 3600000, code: fall > 0 ? (h >= 22 ? 73 : 63) : 2, temperature: h >= 22 ? -1 : shell.at.temperature,
+                     feels: shell.at.temperature - 2, humidity: 80, precip: fall, chance: fall > 0 ? Math.min(1, 0.35 + fall / 5) : 0.05,
+                     cloudCover: 60, coverLow: 50, coverMid: 20, coverHigh: 10, windSpeed: 14, windDirection: 250, gusts: 30, visibility: 20000 })
+        }
+        return out
+      })(),
       days: [0, 1, 2, 3, 4].map(function(i) {
         return { day: Math.floor(Date.now() / 86400000) + i, code: [3, 61, 0, 2, 71][i], high: shell.at.temperature + [2, -3, 1, 4, -9][i], low: shell.at.temperature - [8, 6, 9, 5, 14][i] }
       })
@@ -110,7 +124,7 @@ ShellRoot {
     readonly property var weather: weatherOn ? targetWeather : Model.calmWeather()
     readonly property var temperature: shell.at.temperature
     property var manual: ({ cover: targetWeather.cover, precip: targetWeather.precip, fog: targetWeather.fog, thunder: targetWeather.thunder > 0.5,
-                            hail: false, wind: 16, temperature: shell.at.temperature, hour: mode === "manual" ? shell.at.hour : -1, phase: -1 })
+                            hail: false, aurora: shell.at.aurora === true, fireflies: false, wind: 16, temperature: shell.at.temperature, hour: mode === "manual" ? shell.at.hour : -1, phase: shell.at.tune === true ? 0.3 : -1 })
     readonly property var sliders: manual
     readonly property double now: Model.startOfDay(Date.now()) + shell.at.hour * 3600000
     readonly property real hourNow: shell.at.hour
@@ -120,13 +134,23 @@ ShellRoot {
     readonly property var solar: Model.solarDay(now, sunrises, sunsets)
     readonly property bool night: !solar.isDay
     readonly property string glyph: Model.glyphFor(targetWeather, night)
+    readonly property var soon: null
+    readonly property string soonText: ""
+    readonly property string barGlyph: glyph
     readonly property var location: ({ name: "Lisbon", latitude: 38.72, longitude: -9.14 })
     readonly property bool forecastFailed: false
     readonly property bool qualityKnown: !shell.flat
     readonly property bool qualityAuto: shell.at.auto === true
+    // The `forecast` scene has the hour set in live mode: an hour's forecast.
+    readonly property var hourReading: shell.at.forecast === true ? Model.readingAt(forecast, now) : null
+    readonly property bool forecastAhead: hourReading !== null
+    readonly property string forecastNote: hourReading ? strings.t("info.forecast").arg(clockText(hourReading.at)) : ""
     // The sky is up; the `alone` scene is the panel opened without it.
     readonly property bool active: shell.at.alone !== true
-    readonly property var quality: Model.qualityFor(Quickshell.env("PANEL_QUALITY") || "high")
+    // What is picked, and what is drawn: a level lower in the `battery` scene.
+    readonly property string qualityChoice: Model.qualityFor(Quickshell.env("PANEL_QUALITY") || "high").name
+    readonly property bool savingPower: shell.at.battery === true
+    readonly property var quality: Model.qualityFor(savingPower ? Model.easedQuality(qualityChoice) : qualityChoice)
     readonly property real skyOpacity: 0.9
     readonly property real time: 37.4
     readonly property var laneDrift: [120, 180, 260]
@@ -137,7 +161,7 @@ ShellRoot {
     readonly property bool fahrenheit: true
     readonly property string temperatureText: Math.round(Model.celsiusToFahrenheit(shell.at.temperature)) + "°"
     readonly property string conditionText: strings.t("condition." + targetWeather.key)
-    readonly property bool clockPinned: mode === "manual" && manual.hour >= 0
+    readonly property bool clockPinned: (mode === "manual" && manual.hour >= 0) || shell.at.forecast === true
     readonly property real frameRate: 60
     readonly property real refreshHz: 60
     readonly property var lastGlide: ({ frames: 42, worst: 11 })
@@ -155,6 +179,13 @@ ShellRoot {
     function setDayNight(on) {}
     function setShowInfo(on) {}
     function setInfoLevel(level) {}
+    // In the `tune` scene the clouds and the temperature are off the real weather.
+    function offReal(key) { return shell.at.tune === true && (key === "cover" || key === "temperature") }
+    function resetSlider(key) {}
+    readonly property bool soundOn: shell.at.sound === true
+    readonly property bool soundMissing: false
+    function setSoundOn(on) {}
+    function setHour(hour) {}
     function editCity() {}
     function cancelCity() {}
     function typeCity(text) {}

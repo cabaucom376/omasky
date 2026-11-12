@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "omasky",
   "name": "Omasky",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "author": "chase",
   "license": "MIT",
   "description": "The weather moves in around your desktop as pixel art: your real windows step into a smaller frame under a live sky, with the sun and moon on the clock and clouds, rain, snow, hail, fog and heat from the real conditions, in the theme's colors.",
@@ -22,6 +22,7 @@
     "defaultSection": "center",
     "defaults": {
       "quality": "auto",
+      "easeOnBattery": true,
       "shrink": 0.78,
       "skyOpacity": 0.9,
       "animate": true,
@@ -29,6 +30,9 @@
       "infoDetail": false,
       "weather": true,
       "dayNight": true,
+      "sound": false,
+      "soundVolume": 0.5,
+      "headsUp": true,
       "refreshMinutes": 15,
       "unit": "auto"
     },
@@ -38,6 +42,12 @@
         "type": "string",
         "label": "Quality (auto, low, medium, high, ultra)",
         "defaultValue": "auto"
+      },
+      {
+        "key": "easeOnBattery",
+        "type": "boolean",
+        "label": "Draw one quality level lower on battery or in power-saver mode",
+        "defaultValue": true
       },
       {
         "key": "shrink",
@@ -85,6 +95,27 @@
         "key": "dayNight",
         "type": "boolean",
         "label": "Show the day and night: sun, moon, stars and the sky's color by the hour",
+        "defaultValue": true
+      },
+      {
+        "key": "sound",
+        "type": "boolean",
+        "label": "Play rain, wind and thunder while the sky is up",
+        "defaultValue": false
+      },
+      {
+        "key": "soundVolume",
+        "type": "number",
+        "label": "How loud the sound is",
+        "min": 0,
+        "max": 1,
+        "step": 0.05,
+        "defaultValue": 0.5
+      },
+      {
+        "key": "headsUp",
+        "type": "boolean",
+        "label": "Warn on the bar icon when rain or snow is due within the hour (reads the weather while the sky is down)",
         "defaultValue": true
       },
       {

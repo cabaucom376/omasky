@@ -150,7 +150,12 @@ Item {
       property real thaw: pass.look.thaw
       property real rainbow: pass.look.rainbow
       property real bowX: pass.look.bowX
+      property real bowY: pass.look.bowY
+      property real bowR: pass.look.bowR
+      property real bowSide: pass.look.bowSide
       property real halo: pass.look.halo
+      property real aurora: pass.look.aurora
+      property real fireflies: pass.look.fireflies
       property real rain: pass.look.rain
       property real snow: pass.look.snow
       property real fog: pass.look.fog
@@ -198,6 +203,9 @@ Item {
       property color bowOuter: pass.look.bowOuter
       property color bowMiddle: pass.look.bowMiddle
       property color bowInner: pass.look.bowInner
+      property color auroraLow: pass.look.auroraLow
+      property color auroraHigh: pass.look.auroraHigh
+      property color fireflyColor: pass.look.fireflyColor
     }
   }
 }

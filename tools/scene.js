@@ -42,6 +42,11 @@ if (args.clouds !== undefined) weather.cover = weather.coverLow = weather.coverM
 // --high 0.6: thin high cloud alone. --hail 1, --gust 1, --temp -5.
 if (args.high !== undefined) weather.coverHigh = Number(args.high)
 if (args.hail !== undefined) weather.hail = Number(args.hail)
+// --aurora 1, --fireflies 1: have them whatever the place and the night
+// (they still want the dark). --lat 68 puts the scene somewhere they come
+// of their own accord, some nights.
+if (args.aurora !== undefined) weather.aurora = Number(args.aurora)
+if (args.fireflies !== undefined) weather.fireflies = Number(args.fireflies)
 if (args.gust !== undefined) weather.gust = Number(args.gust)
 if (args.temp !== undefined) weather.temperature = Number(args.temp)
 if (args.rain !== undefined) weather.rain = Number(args.rain)
@@ -79,7 +84,7 @@ const placement = Model.deskPlacement(width, height, args.shrink !== undefined ?
 const rects = Model.windowRects(windows, placement)
 const box = Model.bounds(windows)
 const geometry = { width, height, margin: placement.x, deck: placement.y, desk: box ? Model.placed(box, placement, 1) : null }
-const sky = Model.celestial(now.getTime(), [], [], geometry, args.south ? -30 : 40)
+const sky = Model.celestial(now.getTime(), [], [], geometry, args.lat !== undefined ? Number(args.lat) : (args.south ? -30 : 40))
 if (args.phase !== undefined) {
   sky.moon.phase = Number(args.phase)
   sky.moon.key = Model.moonPhaseKey(sky.moon.phase)

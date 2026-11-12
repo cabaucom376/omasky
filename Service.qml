@@ -4,6 +4,7 @@ import Quickshell
 import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import Quickshell.Services.UPower
 import qs.Commons
 import qs.Commons as Commons
 import "Model.js" as Model
@@ -140,7 +141,14 @@ Item {
   // nothing is drawn: no shader is compiled for a quality that is about to
   // change.
   readonly property bool qualityKnown: !qualityAuto || suggestedQuality !== ""
-  readonly property var quality: Model.qualityFor(qualityPick || (qualityAuto ? (suggestedQuality || "medium") : qualitySetting))
+  // The level chosen: by hand, or for the machine.
+  readonly property string qualityChoice: Model.qualityFor(qualityPick || (qualityAuto ? (suggestedQuality || "medium") : qualitySetting)).name
+  // Running on the battery, or with the power-saver profile on, the sky is
+  // drawn one level lower than that, and comes back up when the power does.
+  // (Nothing is compiled for it: the level is a number the shaders are handed.)
+  readonly property bool easeOnBattery: setting("easeOnBattery", true) !== false
+  readonly property bool savingPower: easeOnBattery && (UPower.onBattery || PowerProfiles.profile === PowerProfile.PowerSaver)
+  readonly property var quality: Model.qualityFor(savingPower ? Model.easedQuality(qualityChoice) : qualityChoice)
 
   Process {
     id: machineProbe
@@ -581,6 +589,9 @@ Item {
     machineProbe.running = true
     wallpaperProbe.running = true
     barsProbe.running = true
+    // Where the bar ends, which the panel is placed under even when it is
+    // opened with the sky down.
+    Hyprland.refreshMonitors()
   }
 
   // ------------------------------------------------------------ the panel
@@ -614,6 +625,10 @@ Item {
   // now, with the weather asked for if the last reading is old.
   function wakePanel() {
     if (mounted) return
+    // Where the bar is: Hyprland's monitor reading is otherwise only asked
+    // for when the sky comes up, and without it the panel would open over
+    // the bar.
+    Hyprland.refreshMonitors()
     wallNow = Date.now()
     weather = targetWeather
     wallpaperProbe.running = true
@@ -672,6 +687,9 @@ Item {
     return {
       cover: w.cover, precip: w.precip || 0, fog: w.fog,
       thunder: w.thunder > 0.5, hail: w.hail > 0.5,
+      // The northern lights and the fireflies start off: by hand they are
+      // switches, whatever the night outside is doing.
+      aurora: false, fireflies: false,
       wind: (w.windPx < 0 ? -1 : 1) * Math.max(0, (Math.abs(w.windPx) - 6) / 1.5),
       // With no temperature known, one that suits what is falling.
       temperature: temperature === null || temperature === undefined ? (w.snow > w.rain ? -3 : 15) : temperature,
@@ -686,6 +704,26 @@ Item {
   // What the panel's sliders show: what was set by hand, or until something
   // is, the sky as it is, so they follow the real weather as it turns.
   readonly property var sliders: mode === "manual" ? manual : slidersNow()
+
+  // Where each manual slider would be for the real weather.
+  readonly property var realSliders: {
+    var w = liveWeather
+    var t = reading && reading.temperature !== null && reading.temperature !== undefined ? reading.temperature : (w.snow > w.rain ? -3 : 15)
+    return {
+      cover: w.cover, precip: w.precip || 0, fog: w.fog, temperature: t,
+      wind: (w.windPx < 0 ? -1 : 1) * Math.max(0, (Math.abs(w.windPx) - 6) / 1.5)
+    }
+  }
+  // Whether a slider has been moved off the real weather, in manual mode:
+  // then it offers the way back (resetSlider).
+  function offReal(key) {
+    if (mode !== "manual" || realSliders[key] === undefined) return false
+    var near = key === "temperature" || key === "wind" ? 0.5 : 0.01
+    return Math.abs(Number(manual[key]) - realSliders[key]) > near
+  }
+  function resetSlider(key) {
+    if (realSliders[key] !== undefined) setManual(key, realSliders[key])
+  }
 
   // Start the sliders from what the sky is doing now.
   function seedManual() {
@@ -760,6 +798,21 @@ Item {
   // Whether the hour has been set, by hand or over IPC, and is not the real one.
   readonly property bool clockPinned: (mode === "manual" && manual.hour >= 0) || (mode !== "demo" && (pinnedClock >= 0 || timelapse))
 
+  // The hour, as the panel's ruler sets it. In manual mode it is one more
+  // thing set by hand. Otherwise the sky stays live and goes to that hour
+  // of today, and the weather with it: what is forecast for then.
+  function setHour(hour) {
+    var h = Math.max(0, Math.min(23.99, Number(hour) || 0))
+    if (mode === "manual") {
+      setManual("hour", h)
+      return
+    }
+    if (!dayNight) setDayNight(true)
+    timelapse = false
+    pinnedClock = h * 3600000
+    if (mode === "demo") mode = previewCode >= 0 ? "preview" : "live"
+  }
+
   // Back to the real hour, leaving the rest as it is.
   function realTime() {
     if (mode === "manual" && manual.hour >= 0) {
@@ -795,15 +848,27 @@ Item {
   property double forecastAt: 0
   property bool forecastFailed: false
 
+  // Live, with the hour set (on the panel's ruler, with `clock`, or by the
+  // time lapse), the weather is the forecast for that hour of today rather
+  // than what it is doing now: the hour's own reading, or null where the
+  // forecast gives none near enough.
+  readonly property var hourReading: mode === "live" && clockPinned && forecast ? Model.readingAt(forecast, now) : null
+  // The reading the sky and the words are made from: that hour's, or the
+  // present one.
+  readonly property var reading: hourReading || forecast
+
   // What the sky is heading for, by mode.
   readonly property var targetWeather: mode === "manual" ? Model.manualWeather(manual)
     : mode === "demo" ? Model.weatherFromCode(Model.DEMO[demoStep].code, null, Model.DEMO[demoStep].wind || 16, 250,
                                               { temperature: Model.DEMO[demoStep].temperature, plain: true })
     : mode === "preview" ? Model.weatherFromCode(previewCode, null, previewWind !== null ? previewWind : 14, 250,
                                                  { temperature: previewTemperature, plain: true })
-    : forecast ? Model.weatherFromCode(forecast.code, forecast.cloudCover, forecast.windSpeed, forecast.windDirection,
-                                       { temperature: forecast.temperature, gusts: forecast.gusts, visibility: forecast.visibility,
-                                         coverLow: forecast.coverLow, coverMid: forecast.coverMid, coverHigh: forecast.coverHigh })
+    : liveWeather
+  // The real weather, whatever the mode: what live shows, and what each of
+  // the manual sliders goes back to.
+  readonly property var liveWeather: reading ? Model.weatherFromCode(reading.code, reading.cloudCover, reading.windSpeed, reading.windDirection,
+                                      { temperature: reading.temperature, gusts: reading.gusts, visibility: reading.visibility,
+                                        coverLow: reading.coverLow, coverMid: reading.coverMid, coverHigh: reading.coverHigh })
     // Nothing known yet: a fair sky rather than a blank one.
     : Model.weatherFromCode(1, null, 8, 250)
   // What the scene is heading for: that, or with the weather switched off
@@ -819,7 +884,7 @@ Item {
   readonly property var temperature: mode === "manual" ? manual.temperature
     : mode === "demo" ? Model.DEMO[demoStep].temperature === undefined ? null : Model.DEMO[demoStep].temperature
     : mode === "preview" ? previewTemperature
-    : (forecast ? forecast.temperature : null)
+    : (reading ? reading.temperature : null)
   // How much the air shimmers, eased like the weather.
   property real heat: 0
 
@@ -835,10 +900,11 @@ Item {
   readonly property string glyph: Model.glyphFor(targetWeather, night)
 
   function refresh() {
-    // For the sky, or for the panel open on its own. (Asked of the two
-    // themselves, not of `watched`: this is called from the handler of one
-    // of them changing, before a binding on them has caught up.)
-    if (!(mounted || controlsOpen) || forecastProc.running || geoProc.running) return
+    // For the sky, for the panel open on its own, or for the heads-up on the
+    // bar icon. (Asked of the first two themselves, not of `watched`: this
+    // is called from the handler of one of them changing, before a binding
+    // on them has caught up.)
+    if (!(mounted || controlsOpen || headsUp) || forecastProc.running || geoProc.running) return
     if (!hasLocation) {
       geoProc.running = true
       return
@@ -1079,6 +1145,44 @@ Item {
     onTriggered: root.refresh()
   }
 
+  // ------------------------------------------------------------ heads-up
+  //
+  // With the sky down the bar icon is all there is of the weather, so it
+  // gives warning: when rain or snow is due to start within the hour it
+  // turns into an umbrella or a snowflake and says how long there is. For
+  // that the weather has to be read while nothing is showing, which it
+  // otherwise is not: every twenty minutes at the most often, and once
+  // shortly after the shell starts. Switched off (the headsUp setting), the
+  // plugin goes back to asking for nothing while nothing is on screen.
+  readonly property bool headsUp: setting("headsUp", true) !== false
+  // {minutes, snow} or null; only from a reading fresh enough to go by.
+  readonly property var soon: headsUp && forecast && wallNow - forecastAt < 45 * Model.MINUTE ? Model.fallSoon(forecast, wallNow) : null
+  readonly property string soonText: !soon ? ""
+    : soon.minutes > 0 ? strings.t(soon.snow ? "widget.snowSoon" : "widget.rainSoon").arg(Commons.I18n.formatNumber(soon.minutes))
+    : strings.t(soon.snow ? "widget.snowNow" : "widget.rainNow")
+  // What the bar icon shows: the weather, or that warning.
+  readonly property string barGlyph: soon ? (soon.snow ? "\ue36f" : "\ue220") : glyph
+
+  Timer {
+    interval: Math.max(root.refreshMinutes, 20) * 60000
+    repeat: true
+    running: root.headsUp && !root.watched
+    onTriggered: root.refresh()
+  }
+  Timer {
+    interval: 15000
+    running: root.headsUp
+    onTriggered: if (!root.watched && root.forecastAt === 0) root.refresh()
+  }
+  // The minute, so that the warning counts down and the icon turns from day
+  // to night; with the sky or the panel up the clock runs by itself.
+  Timer {
+    interval: 60000
+    repeat: true
+    running: root.headsUp && !root.watched
+    onTriggered: root.wallNow = Date.now()
+  }
+
   // One early second try, for a network that was not up yet.
   Timer {
     interval: 20000
@@ -1146,6 +1250,33 @@ Item {
   function strike() {
     if (!weatherOn) setWeatherOn(true)
     strikeNow = true
+  }
+  // Lightning has just struck: what the thunder waits for.
+  signal struck()
+
+  // ---------------------------------------------------------------- sound
+  //
+  // Rain, wind and thunder, as loud as there is of each, while the sky is
+  // up. Off unless asked for. The part that makes it (Sound.qml) is loaded
+  // only then, and apart, because it needs Qt's multimedia module, which
+  // the shell itself does not: where that is missing the sound is, and the
+  // panel says so.
+  readonly property bool soundOn: setting("sound", false) === true
+  readonly property real soundVolume: Model.clamp(Number(setting("soundVolume", 0.5)) || 0, 0, 1)
+  property bool soundMissing: false
+  function setSoundOn(on) { saveSetting("sound", on === true) }
+
+  Loader {
+    id: soundLoader
+    active: root.soundOn && root.mounted && !root.soundMissing
+    source: Qt.resolvedUrl("Sound.qml")
+    onLoaded: item.service = root
+    onStatusChanged: if (status === Loader.Error) root.soundMissing = true
+  }
+  // The files are there but will not play: no sound here either.
+  Connections {
+    target: soundLoader.item
+    function onBrokenChanged() { if (soundLoader.item.broken) root.soundMissing = true }
   }
 
   FrameAnimation {
@@ -1250,6 +1381,7 @@ Item {
       } else if (strikeNow || time >= nextStrike) {
         strikeNow = false
         strikeAge = 0
+        struck()
         boltAt = 0.10 + Math.random() * 0.80
         boltSeed = 1 + Math.random() * 90
         flash = Model.flashAt(0)
@@ -1277,14 +1409,19 @@ Item {
     if (celsius === null || celsius === undefined) return ""
     return Commons.I18n.formatNumber(Math.round(fahrenheit ? Model.celsiusToFahrenheit(celsius) : celsius)) + "°"
   }
-  readonly property string feelsText: forecast ? degreesText(forecast.feels) : ""
+  readonly property string feelsText: reading ? degreesText(reading.feels) : ""
   readonly property string windText: {
-    if (!forecast || forecast.windSpeed === null || forecast.windSpeed === undefined) return ""
-    return fahrenheit ? Commons.I18n.formatNumber(Math.round(forecast.windSpeed * 0.621371)) + " mph"
-                      : Commons.I18n.formatNumber(Math.round(forecast.windSpeed)) + " km/h"
+    if (!reading || reading.windSpeed === null || reading.windSpeed === undefined) return ""
+    return fahrenheit ? Commons.I18n.formatNumber(Math.round(reading.windSpeed * 0.621371)) + " mph"
+                      : Commons.I18n.formatNumber(Math.round(reading.windSpeed)) + " km/h"
   }
-  readonly property string humidityText: forecast && forecast.humidity !== null && forecast.humidity !== undefined
-    ? Commons.I18n.formatNumber(Math.round(forecast.humidity)) + "%" : ""
+  readonly property string humidityText: reading && reading.humidity !== null && reading.humidity !== undefined
+    ? Commons.I18n.formatNumber(Math.round(reading.humidity)) + "%" : ""
+  // Said beside the weather when it is an hour's forecast, or an hour gone
+  // by, so that it is not taken for now.
+  readonly property bool forecastAhead: hourReading !== null && hourReading.at > wallNow
+  readonly property string forecastNote: hourReading
+    ? strings.t(forecastAhead ? "info.forecast" : "info.earlier").arg(clockText(hourReading.at)) : ""
   // Which day it is where the place is. It only changes at that place's
   // midnight, so what hangs off it is not worked out again every second.
   readonly property int placeDay: Model.placeDay(forecast, wallNow)
@@ -1364,6 +1501,12 @@ Item {
       return root.weatherOn ? "on" : "off"
     }
 
+    // The sky's sound, rain, wind and thunder: on, off or toggle.
+    function sound(state: string): string {
+      root.setSoundOn(root.switched(state, root.soundOn))
+      return root.soundOn ? (root.soundMissing ? "on, but this machine has no Qt multimedia module to play it" : "on") : "off"
+    }
+
     // The hour on its own: on, off or toggle. Sun, moon, stars and the
     // sky's color by the time of day; the weather is left as it is.
     function daynight(state: string): string {
@@ -1404,18 +1547,19 @@ Item {
     // One of the by-hand controls, as the panel's sliders have them: clouds,
     // precip and fog from 0 to 1; temperature in degrees Celsius; wind in
     // km/h (negative blows left); hour from 0 to 24 and moon from 0 to 1
-    // (-1 for the real one); thunder and hail on or off. Like the sliders,
+    // (-1 for the real one); thunder, hail, aurora and fireflies on or off. Like the sliders,
     // it takes the sky into hand, and shows it.
     function set(name: string, value: string): string {
       var keys = {
         clouds: "cover", cover: "cover", precip: "precip", precipitation: "precip", fog: "fog",
         temperature: "temperature", temp: "temperature", wind: "wind", hour: "hour", time: "hour",
-        moon: "phase", phase: "phase", thunder: "thunder", hail: "hail"
+        moon: "phase", phase: "phase", thunder: "thunder", hail: "hail",
+        aurora: "aurora", lights: "aurora", fireflies: "fireflies"
       }
       var key = keys[String(name || "").trim().toLowerCase()]
       if (!key) return "unknown control: " + name
       var to
-      if (key === "thunder" || key === "hail") {
+      if (key === "thunder" || key === "hail" || key === "aurora" || key === "fireflies") {
         to = root.switched(value, root.sliders[key] === true)
       } else {
         to = Number(value)
@@ -1502,6 +1646,9 @@ Item {
         mode: root.mode,
         quality: root.quality.name,
         qualityAuto: root.qualityAuto,
+        // The level chosen, and whether it is being held a level lower to save power.
+        qualityChoice: root.qualityChoice,
+        savingPower: root.savingPower,
         weather: root.weatherOn,
         dayNight: root.dayNight,
         info: ["off", "simple", "detailed"][root.infoLevel],
@@ -1514,6 +1661,13 @@ Item {
         hitch: root.hitch,
         condition: root.targetWeather.key,
         clock: root.mode === "demo" ? "demo" : root.timelapse ? "timelapse" : (root.pinnedClock >= 0 || (root.mode === "manual" && root.manual.hour >= 0) ? "pinned" : "live"),
+        // The hour whose forecast is on show, when the hour is set in live mode.
+        forecastFor: root.hourReading ? new Date(root.hourReading.at).toISOString() : null,
+        // The warning on the bar icon: what is about to start falling, or null.
+        soon: root.soon,
+        // Whether sound is asked for, and whether this machine can play it.
+        sound: root.soundOn,
+        soundMissing: root.soundMissing,
         night: root.night,
         // Sunrise and sunset as the sky has them today, in hours.
         daylight: (function() {
@@ -1751,8 +1905,10 @@ Item {
       // further from it. So each patch keeps its full strength under most
       // of what is written, and only falls away from there: the far end of
       // a row reads as well as the near one.
-      readonly property real nearCoreWidth: Math.round((info.x + info.width) * 0.6 * root.detailShare)
-      readonly property real nearCoreHeight: Math.round((info.y + info.height) * 0.6 * root.detailShare)
+      // The words alone (no detail) get a core too: their second line, with
+      // the mode, the moon and the next sunrise in it, can run long.
+      readonly property real nearCoreWidth: Math.round((info.x + info.width) * (0.85 - 0.25 * root.detailShare))
+      readonly property real nearCoreHeight: Math.round((info.y + info.height) * (0.85 - 0.25 * root.detailShare))
       readonly property real farCoreWidth: outlook.visible ? Math.round(outlookReach * 0.75 * root.detailShare) : 0
       readonly property real farCoreHeight: outlook.visible ? Math.round((outlook.y + outlook.height) * 0.75 * root.detailShare) : 0
 

@@ -139,7 +139,12 @@ function derivePalette(colors, fallback) {
     // A rainbow, outside in: the theme's red, its yellow, its blue.
     bowOuter: red,
     bowMiddle: yellow,
-    bowInner: mixColor(blue, pick("magenta", "color5") || blue, 0.35)
+    bowInner: mixColor(blue, pick("magenta", "color5") || blue, 0.35),
+    // The northern lights: the theme's green along the hem, going to its
+    // violet up the folds. And a firefly: its yellow, a little green.
+    auroraLow: mixColor(pick("green", "color2") || mixColor(cyan, yellow, 0.5), paper, 0.18),
+    auroraHigh: mixColor(pick("magenta", "color5", "purple") || mixColor(blue, red, 0.5), blue, 0.3),
+    firefly: mixColor(mixColor(yellow, pick("green", "color2") || yellow, 0.35), paper, 0.25)
   }
 }
 
@@ -319,6 +324,17 @@ function weatherFromCode(code, cloudCover, windSpeed, windDirection, more) {
   }
 }
 
+// How loud the rain and the wind are for a sky, each 0..1. The rain by how
+// hard it falls, hail louder still, and snow not at all: it falls silent.
+// The wind from a stiff breeze up, and more of it in gusts.
+function soundLevels(weather) {
+  var w = weather || {}
+  var falling = w.rain || 0
+  var rain = smoothstep(0.02, 0.85, falling) * (0.55 + 0.45 * falling) + 0.5 * (w.hail || 0) * smoothstep(0.02, 0.3, w.precip || 0)
+  var wind = smoothstep(0.4, 1.0, Math.abs(w.wind || 0)) * (0.6 + 0.4 * (w.gust || 0))
+  return { rain: clamp(rain, 0, 1), wind: clamp(wind, 0, 1) }
+}
+
 // Each cloud lane's share of that speed: far clouds cross slower.
 var LANE_SPEED = [0.45, 0.68, 1.0]
 
@@ -381,8 +397,50 @@ function parseForecast(raw) {
   }
   days.sort(function(a, b) { return a.day - b.day })
 
+  // The hours either side of now. Each is a reading shaped as the present
+  // one is, with when it is for, what falls in the hour up to it
+  // (millimetres) and the chance of that (0..1).
+  var hours = []
+  var hourly = data.hourly && typeof data.hourly === "object" ? data.hourly : {}
+  function column(name) { return Array.isArray(hourly[name]) ? hourly[name] : [] }
+  var stamps = column("time"), hc = column("weather_code"), ht = column("temperature_2m")
+  var hf = column("apparent_temperature"), hh = column("relative_humidity_2m")
+  var hp = column("precipitation"), hpp = column("precipitation_probability")
+  var hcc = column("cloud_cover"), hcl = column("cloud_cover_low"), hcm = column("cloud_cover_mid"), hch = column("cloud_cover_high")
+  var hws = column("wind_speed_10m"), hwd = column("wind_direction_10m"), hwg = column("wind_gusts_10m"), hv = column("visibility")
+  for (var n = 0; n < stamps.length && n < 120; n++) {
+    var hourAt = number(stamps[n], 1e9, 1e11), hourCode = number(hc[n], 0, 99)
+    if (hourAt === null || hourCode === null) continue
+    var chance = number(hpp[n], 0, 100)
+    hours.push({
+      at: hourAt * 1000, code: hourCode,
+      temperature: number(ht[n], -100, 70), feels: number(hf[n], -100, 70), humidity: number(hh[n], 0, 100),
+      precip: number(hp[n], 0, 500) || 0, chance: chance === null ? null : chance / 100,
+      cloudCover: number(hcc[n], 0, 100), coverLow: number(hcl[n], 0, 100), coverMid: number(hcm[n], 0, 100), coverHigh: number(hch[n], 0, 100),
+      windSpeed: number(hws[n], 0, 500), windDirection: number(hwd[n], 0, 360), gusts: number(hwg[n], 0, 500),
+      visibility: number(hv[n], 0, 1000000)
+    })
+  }
+  hours.sort(function(a, b) { return a.at - b.at })
+
+  // The next two hours a quarter of an hour at a time: when each quarter
+  // ends, what falls in it (millimetres) and what kind of weather it is.
+  var soon = []
+  var quarters = data.minutely_15 && typeof data.minutely_15 === "object" ? data.minutely_15 : {}
+  var qt = Array.isArray(quarters.time) ? quarters.time : []
+  var qp = Array.isArray(quarters.precipitation) ? quarters.precipitation : []
+  var qc = Array.isArray(quarters.weather_code) ? quarters.weather_code : []
+  for (var q = 0; q < qt.length && q < 16; q++) {
+    var quarterAt = number(qt[q], 1e9, 1e11)
+    if (quarterAt === null) continue
+    soon.push({ at: quarterAt * 1000, precip: number(qp[q], 0, 500) || 0, code: number(qc[q], 0, 99) })
+  }
+  soon.sort(function(a, b) { return a.at - b.at })
+
   return {
     code: code,
+    hours: hours,
+    soon: soon,
     temperature: number(current.temperature_2m, -100, 70),
     feels: number(current.apparent_temperature, -100, 70),
     humidity: number(current.relative_humidity_2m, 0, 100),
@@ -400,6 +458,89 @@ function parseForecast(raw) {
     sunrise: sunrise,
     sunset: sunset
   }
+}
+
+// Whether a WMO weather code is something falling, and whether that is snow.
+function codeFalls(code) {
+  var c = Number(code)
+  return (c >= 51 && c <= 67) || (c >= 71 && c <= 77) || (c >= 80 && c <= 86) || (c >= 95 && c <= 99)
+}
+function codeSnows(code) {
+  var c = Number(code)
+  return (c >= 71 && c <= 77) || c === 85 || c === 86
+}
+
+// What is about to start falling: {minutes, snow}, or null. It goes by the
+// quarter hours the forecast gives: the first one within the hour in which
+// something falls. `minutes` is how long until that quarter begins, to the
+// nearest five, 0 for any minute now. Null when nothing is on its way, and
+// when it is already coming down: this is a warning of a change.
+function fallSoon(forecast, now) {
+  if (!forecast || !isList(forecast.soon) || codeFalls(forecast.code)) return null
+  for (var i = 0; i < forecast.soon.length; i++) {
+    var quarter = forecast.soon[i]
+    if (quarter.at <= now) continue
+    var begins = quarter.at - 15 * MINUTE
+    if (begins - now > 60 * MINUTE) break
+    if (quarter.precip >= 0.1 || codeFalls(quarter.code))
+      return { minutes: Math.max(0, Math.round((begins - now) / MINUTE / 5) * 5), snow: codeSnows(quarter.code) }
+  }
+  return null
+}
+
+// The reading for an hour: of the hours the forecast gives, the one nearest
+// `when`, if there is one within the hour. It has the fields the present
+// reading has, so the sky is made from it the same way. Null when the
+// forecast does not reach that far.
+function readingAt(forecast, when) {
+  var hours = forecast && isList(forecast.hours) ? forecast.hours : []
+  var best = null, gap = 61 * MINUTE
+  for (var i = 0; i < hours.length; i++) {
+    var d = Math.abs(hours[i].at - when)
+    if (d < gap) {
+      best = hours[i]
+      gap = d
+    }
+  }
+  return best
+}
+
+// What falls through a day, an hour at a time, for drawing along the day's
+// ruler: twenty-four entries from `dayStart`, each {amount (millimetres in
+// that hour), chance (0..1, or null where none is given), snow} or null
+// where the forecast has nothing. An hour's fall is reported at the hour's
+// end, so each entry is read from the hour that closes it.
+function hourStrip(forecast, dayStart) {
+  var out = []
+  var any = false
+  for (var i = 0; i < 24; i++) {
+    var end = dayStart + (i + 1) * 60 * MINUTE
+    var hours = forecast && isList(forecast.hours) ? forecast.hours : []
+    var hit = null
+    for (var j = 0; j < hours.length; j++) {
+      if (Math.abs(hours[j].at - end) < 31 * MINUTE) {
+        hit = hours[j]
+        break
+      }
+    }
+    if (!hit) {
+      out.push(null)
+      continue
+    }
+    any = true
+    var snowing = (hit.code >= 71 && hit.code <= 77) || hit.code === 85 || hit.code === 86
+      || (hit.temperature !== null && hit.temperature <= 0.5 && hit.precip > 0)
+    out.push({ amount: hit.precip, chance: hit.chance, snow: snowing })
+  }
+  return any ? out : []
+}
+
+// How long a bar an hour's fall gets on that ruler, 0..1: a drizzle shows,
+// and four millimetres an hour is as long as it goes.
+function stripLength(amount) {
+  var mm = Number(amount)
+  if (!isFinite(mm) || mm <= 0.04) return 0
+  return 0.3 + 0.7 * smoothstep(0, 4, mm)
 }
 
 // weather.json and geo.omarchy.org share a shape: {name, latitude, longitude}.
@@ -434,6 +575,15 @@ function forecastUrl(latitude, longitude) {
     + ",cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high"
     + ",wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility"
     + "&daily=sunrise,sunset,weather_code,temperature_2m_max,temperature_2m_min"
+    // The hours: a day back, so the whole of today is covered whenever it is
+    // asked, and two ahead. Each as the present reading is, with what falls.
+    + "&hourly=weather_code,temperature_2m,apparent_temperature,relative_humidity_2m"
+    + ",precipitation,precipitation_probability"
+    + ",cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high"
+    + ",wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility"
+    + "&past_hours=24&forecast_hours=48"
+    // And the next two hours a quarter at a time, for what is about to fall.
+    + "&minutely_15=precipitation,weather_code&past_minutely_15=0&forecast_minutely_15=8"
     + "&past_days=1&forecast_days=5&timeformat=unixtime&timezone=auto"
 }
 
@@ -650,6 +800,11 @@ function celestial(now, sunrises, sunsets, geometry, latitude, phase) {
   var glowX = day.isDay ? arc.x : (sinceStart < untilEnd ? geometry.width - edge : edge)
 
   return {
+    // How far from the equator the place is, where that is known, and which
+    // night this is, counted from noon to noon so it does not change at
+    // midnight: for what only some skies and some nights have.
+    latitude: latitude === null || latitude === undefined || !isFinite(Number(latitude)) ? null : Number(latitude),
+    nightOf: Math.floor((now - DAY / 2) / DAY),
     isDay: day.isDay,
     estimated: day.estimated,
     progress: progress,
@@ -755,6 +910,54 @@ function skyWash(weather, dayness, twilight, steady) {
   return mix(0.25, 1, v) * mix(1, smoothstep(0, 0.2, v), still)
 }
 
+// A number from 0 to 1 for a whole number, the same every time: the dice
+// for things that some nights have and some do not.
+function dice(n) {
+  var v = Math.sin(Number(n) * 12.9898 + 78.233) * 43758.5453
+  return v - Math.floor(v)
+}
+
+// The northern lights (or the southern): how strongly they show on a given
+// night, 0..1, before the weather has its say. It goes by how far from the
+// equator the place is: never below about fifty degrees, most nights from
+// the middle sixties up. Each night is its own, the same from dusk to dawn.
+function auroraFor(latitude, nightOf) {
+  if (latitude === null || latitude === undefined) return 0
+  var far = Math.abs(Number(latitude))
+  if (!isFinite(far)) return 0
+  var often = smoothstep(50, 66, far) * 0.85
+  if (dice(nightOf) >= often) return 0
+  return 0.45 + 0.55 * dice(nightOf + 0.5)
+}
+
+// Fireflies: how many, 0..1, for the weather alone (the hour is the sky's
+// to add). A warm night with no rain and not much wind.
+function firefliesFor(weather) {
+  var w = weather || {}
+  if (!known(w.temperature)) return 0
+  return smoothstep(15, 21, Number(w.temperature)) * (1 - smoothstep(0.02, 0.2, (w.rain || 0) + (w.snow || 0)))
+    * (1 - smoothstep(0.45, 0.8, Math.abs(w.wind || 0))) * (1 - 0.6 * (w.fog || 0))
+}
+
+// Where the rainbow stands: a circle, drawn from its inmost band outward.
+// The desktop fills the middle of the screen, so a bow that only crossed the
+// middle would be lost behind the windows. This one is fitted round them:
+// its crown halfway up the sky above the desktop, and its feet coming down
+// through the middle of the margins beside it, so that it reads as an arch
+// over the windows. It stands on the side away from the sun (`side`: -1 the
+// left half, 1 the right), and the shader thins it out toward the sun's.
+function bowShape(geometry, sunX) {
+  var w = geometry.width, h = geometry.height
+  var margin = geometry.margin > 0 ? geometry.margin : w * 0.11
+  var deck = geometry.deck > 0 ? geometry.deck : h * 0.21
+  var crown = deck * 0.5
+  var reach = w / 2 - margin * 0.5
+  var foot = deck + (h - deck) * 0.55
+  // The circle through (middle ± reach, foot) whose top is at `crown`.
+  var y = (reach * reach + foot * foot - crown * crown) / (2 * (foot - crown))
+  return { x: w / 2, y: y, radius: y - crown, side: sunX > w / 2 ? -1 : 1 }
+}
+
 function sceneUniforms(palette, sky, weather, geometry) {
   var d = sky.dayness
   // How far the hour is switched out of this sky (steadySky).
@@ -803,6 +1006,15 @@ function sceneUniforms(palette, sky, weather, geometry) {
   // it stands on the side of the sky away from the sun.
   var rainbow = sunUp ? smoothstep(0.04, 0.3, weather.rain) * (1 - smoothstep(0.5, 0.92, cover))
                         * smoothstep(0.22, 0.55, sky.sun.low) * (1 - weather.fog) * (1 - steady) : 0
+  var bow = bowShape(geometry, sky.sun.x)
+  // The northern lights want a dark, open sky; where a mode sets them
+  // (weather.aurora) that is how strong they are, and otherwise it is up to
+  // the place and the night. Fireflies want the night, and the weather for
+  // them. Neither is there with the hour switched out of the sky.
+  var dark = (1 - d) * (1 - d) * (1 - steady)
+  var aurora = (known(weather.aurora) ? weather.aurora : auroraFor(sky.latitude, sky.nightOf))
+    * dark * (1 - smoothstep(0.35, 0.8, cover)) * (1 - weather.fog)
+  var fireflies = (known(weather.fireflies) ? weather.fireflies : firefliesFor(weather)) * smoothstep(0.75, 0.95, 1 - d) * (1 - steady)
   // A ring round the moon wants thin high cloud in front of it and nothing
   // thicker below.
   var halo = !sunUp && !falling ? smoothstep(0.12, 0.4, highCover) * (1 - smoothstep(0.7, 0.95, Math.max(lowCover, midCover)))
@@ -836,8 +1048,16 @@ function sceneUniforms(palette, sky, weather, geometry) {
       gust: weather.gust || 0,
       thaw: thaw,
       rainbow: rainbow,
-      bowX: geometry.width - sky.sun.x,
+      bowX: bow.x,
+      bowY: bow.y,
+      bowR: bow.radius,
+      bowSide: bow.side,
       halo: halo,
+      aurora: aurora,
+      fireflies: fireflies,
+      auroraLow: toHex(palette.auroraLow),
+      auroraHigh: toHex(palette.auroraHigh),
+      fireflyColor: toHex(palette.firefly),
       bowOuter: toHex(palette.bowOuter),
       bowMiddle: toHex(palette.bowMiddle),
       bowInner: toHex(palette.bowInner),
@@ -892,6 +1112,13 @@ function qualityFor(name) {
 
 // The quality a machine can carry, from what the installer can see of it:
 // `renderer` is the GL renderer's name, memory is in GiB.
+// One level down from a quality, for running on battery: the sky costs the
+// most of anything the shell draws. Low is as low as it goes.
+function easedQuality(name) {
+  var q = qualityFor(name).name
+  return q === "ultra" ? "high" : q === "high" ? "medium" : "low"
+}
+
 function suggestQuality(renderer, cores, memory) {
   var r = String(renderer || "").toLowerCase()
   var software = r === "" || /llvmpipe|softpipe|software/.test(r)
@@ -936,6 +1163,17 @@ function mixWeather(a, b, t) {
     if (Math.abs(v - b[f]) < 0.004 * (f === "windPx" ? 50 : 1)) v = b[f]
     else settled = false
     out[f] = v
+  }
+  // The northern lights and the fireflies, where a mode sets them. Left
+  // out, the sky decides them for itself (sceneUniforms).
+  var set = ["aurora", "fireflies"]
+  for (var j = 0; j < set.length; j++) {
+    var e = set[j]
+    if (!known(b[e])) continue
+    var lit = mix(known(a[e]) ? a[e] : b[e], b[e], k)
+    if (Math.abs(lit - b[e]) < 0.004) lit = b[e]
+    else settled = false
+    out[e] = lit
   }
   // The temperature turns too, where there is one at both ends.
   if (known(a.temperature) && known(b.temperature)) {
@@ -988,7 +1226,10 @@ function manualWeather(m) {
     storm: clamp(thunder * 0.6 + rain * 0.7 + snow * 0.25 + hail * 0.2, 0, 1),
     wind: heading * clamp(0.18 + speed / 55, 0.18, 1),
     gust: smoothstep(12, 70, speed),
-    windPx: heading * (6 + Math.min(speed, 120) * 1.5)
+    windPx: heading * (6 + Math.min(speed, 120) * 1.5),
+    // By hand these are switches, and the sky has no say.
+    aurora: s.aurora === true ? 1 : 0,
+    fireflies: s.fireflies === true ? 1 : 0
   }
 }
 
@@ -1350,6 +1591,18 @@ function flashAt(age) {
 
 // The Nerd Font weather glyph for a reading, as Omarchy's own weather widget
 // picks them.
+// The weather as an icon with no sun or moon in it: for where the hour has
+// an icon of its own beside it (the panel's Weather and Day & night).
+function cloudGlyph(weather) {
+  var w = weather || {}
+  if (w.thunder > 0) return "\ue31d"
+  if (w.snow > 0 && w.rain > 0) return "\ue3ad"
+  if (w.snow > 0) return "\ue31a"
+  if (w.rain > 0) return "\ue318"
+  if (w.fog > 0.4) return "\ue313"
+  return "\ue33d"
+}
+
 function glyphFor(weather, night) {
   var w = weather || {}
   if (w.thunder > 0) return "\ue31d"
@@ -1402,16 +1655,19 @@ if (typeof module !== "undefined") {
     weatherFromCode: weatherFromCode, LANE_SPEED: LANE_SPEED, heatFor: heatFor,
     parseForecast: parseForecast, parseLocation: parseLocation, forecastUrl: forecastUrl,
     moonPhase: moonPhase, moonPhaseKey: moonPhaseKey, moonGlyph: moonGlyph, solarDay: solarDay,
-    arcPosition: arcPosition, celestial: celestial, sceneUniforms: sceneUniforms,
+    arcPosition: arcPosition, celestial: celestial, sceneUniforms: sceneUniforms, bowShape: bowShape,
+    auroraFor: auroraFor, firefliesFor: firefliesFor, soundLevels: soundLevels,
     deskPlacement: deskPlacement, placed: placed, deskWindows: deskWindows, bounds: bounds,
     frameMargins: frameMargins, shownWindows: shownWindows, skyWash: skyWash, titleBars: titleBars,
     ledgeStep: ledgeStep, ledgeSlots: ledgeSlots, LEDGES: LEDGES, ICICLE_MOST: ICICLE_MOST,
-    qualityFor: qualityFor, suggestQuality: suggestQuality, windowRects: windowRects,
+    qualityFor: qualityFor, suggestQuality: suggestQuality, easedQuality: easedQuality, windowRects: windowRects,
     mixWeather: mixWeather, manualWeather: manualWeather, lyingStep: lyingStep, frozenShare: frozenShare,
     fogFromVisibility: fogFromVisibility, previewWind: previewWind, LYING_MOST: LYING_MOST, demoState: demoState, DEMO: DEMO, DEMO_SCENE: DEMO_SCENE,
-    flashAt: flashAt, glyphFor: glyphFor, parseClock: parseClock, startOfDay: startOfDay,
+    flashAt: flashAt, glyphFor: glyphFor, cloudGlyph: cloudGlyph, parseClock: parseClock, startOfDay: startOfDay,
     steadySky: steadySky, dayMarks: dayMarks, calmWeather: calmWeather, dayEvents: dayEvents,
     forecastDays: forecastDays, placeDay: placeDay, forecastFrom: forecastFrom,
+    readingAt: readingAt, hourStrip: hourStrip, stripLength: stripLength,
+    codeFalls: codeFalls, codeSnows: codeSnows, fallSoon: fallSoon,
     geocodeUrl: geocodeUrl, parseGeocoding: parseGeocoding,
     dayLight: dayLight, dayBand: dayBand,
     celsiusToFahrenheit: celsiusToFahrenheit, usesFahrenheit: usesFahrenheit,
