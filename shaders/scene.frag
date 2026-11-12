@@ -78,7 +78,10 @@ layout(std140, binding = 0) uniform buf {
     float gust;         // how unevenly the wind blows, 0..1
     float thaw;         // how fast lying snow is going, 0..1
     float rainbow;      // 0..1
-    float bowX;         // where along the screen it stands
+    float bowX;         // the middle of its circle
+    float bowY;
+    float bowR;         // and how far out its inmost band runs
+    float bowSide;      // which half is away from the sun: -1 left, 1 right
     float halo;         // a ring round the moon, 0..1
 
     vec2 canvas;
@@ -997,15 +1000,19 @@ vec4 skyPass(vec2 p, vec2 cell) {
 
     float solid = 0.0;
 
-    // A rainbow, when rain is falling and the sun is out and low: on the far
-    // side of the sky from the sun, its foot behind the ground. Bands in the
+    // A rainbow, when rain is falling and the sun is out and low. It is an
+    // arch over the desktop: its crown in the sky above the windows and its
+    // foot coming down the margin beside them, where it can be seen
+    // (Model.bowShape). It stands on the side of the sky away from the sun
+    // and thins to nothing on the way over to the sun's. Bands in the
     // theme's colors, red outermost, drawn thin enough to see the sky through.
     if (DETAIL_1 && u.rainbow > 0.01) {
-        float band = (length(p - vec2(u.bowX, SCENE.y * 1.05)) - SCENE.y * 0.74) / max(SCENE.y * 0.013, u.pixel);
+        float band = (length(p - vec2(u.bowX, u.bowY)) - u.bowR) / max(SCENE.y * 0.013, u.pixel);
         if (band >= 0.0 && band < 6.0) {
             float k = floor(band) / 5.0;
             vec3 bow = k < 0.5 ? mix(u.bowInner.rgb, u.bowMiddle.rgb, k * 2.0) : mix(u.bowMiddle.rgb, u.bowOuter.rgb, k * 2.0 - 1.0);
-            if (u.rainbow * 0.72 > bayer8(cell)) {
+            float away = smoothstep(-0.5, 0.1, (p.x - u.bowX) / u.bowR * u.bowSide);
+            if (u.rainbow * 0.72 * away > bayer8(cell)) {
                 col = mix(col, bow, 0.8);
                 solid = max(solid, 0.8);
             }

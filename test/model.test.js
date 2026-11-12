@@ -385,9 +385,11 @@ test("thaw, rainbows and a ring round the moon come from the right weather", () 
   const night = M.celestial(new Date(2026, 5, 1, 23, 0).getTime(), [], [], geometry, 40, 0.5)
   const scene = (sky, w) => M.sceneUniforms(palette, sky, w, geometry).scene
   const shower = M.manualWeather({ cover: 0.5, precip: 0.6, temperature: 16 })
-  // A shower with the sun low and out: a rainbow, on the far side of the sky from the sun.
+  // A shower with the sun low and out: a rainbow, arched over the middle of the
+  // screen and standing on the side of the sky away from the sun.
   const bow = scene(evening, shower)
-  assert.ok(bow.rainbow > 0.3 && Math.abs(bow.bowX - (1600 - evening.sun.x)) < 1e-9 && /^#[0-9a-f]{6}$/.test(bow.bowOuter))
+  assert.ok(bow.rainbow > 0.3 && bow.bowX === 800 && /^#[0-9a-f]{6}$/.test(bow.bowOuter))
+  assert.strictEqual(bow.bowSide, evening.sun.x > 800 ? -1 : 1)
   // Not at noon, not under a closed sky, not at night, not when it is snow.
   assert.ok(scene(noon, shower).rainbow < 0.05)
   assert.strictEqual(scene(evening, M.manualWeather({ cover: 1, precip: 0.6, temperature: 16 })).rainbow, 0)
@@ -695,6 +697,33 @@ test("the moon's glyph follows its phase round the icon font's twenty-eight", ()
   assert.strictEqual(M.moonGlyph(0.995), "\ue38d")
   assert.strictEqual(M.moonGlyph(1.25), M.moonGlyph(0.25))
   assert.strictEqual(M.moonGlyph("nope"), "\ue38d")
+})
+
+test("the rainbow arches over the desktop, with its feet in the margins beside it", () => {
+  const g = { width: 1728, height: 1126, margin: 190, deck: 242 }
+  const bow = M.bowShape(g, 1500)
+  // Its crown is in the sky above the desktop, on the middle of the screen.
+  assert.strictEqual(bow.x, 864)
+  const crown = bow.y - bow.radius
+  assert.ok(crown > 0 && crown < g.deck, "crown at " + crown)
+  // Level with the middle of the desktop it is out in the margins, not behind the windows.
+  const level = g.deck + (g.height - g.deck) * 0.55
+  const out = Math.sqrt(bow.radius * bow.radius - (bow.y - level) * (bow.y - level))
+  assert.ok(bow.x - out > 0 && bow.x - out < g.margin, "left foot at " + (bow.x - out))
+  assert.ok(bow.x + out > g.width - g.margin && bow.x + out < g.width)
+  // It stands away from the sun.
+  assert.strictEqual(bow.side, -1)
+  assert.strictEqual(M.bowShape(g, 200).side, 1)
+  // A scene that says nothing of its frame (the panel's miniature) still gets one that fits.
+  const small = M.bowShape({ width: 400, height: 200 }, 100)
+  assert.ok(small.radius > 0 && small.y - small.radius > 0 && small.y - small.radius < 200 * 0.21)
+  // And the scene is handed it.
+  const colors = M.parseThemeColors('mode = "dark"\nbackground = "#142620"\nforeground = "#dfede5"\n')
+  const sky = M.celestial(new Date(2026, 5, 1, 17, 0).getTime(), [], [], g, 40, 0.3)
+  const look = M.sceneUniforms(M.derivePalette(colors, {}), sky, M.weatherFromCode(61, 40, 10, 250), g).scene
+  assert.strictEqual(look.bowX, bow.x)
+  assert.ok(Math.abs(look.bowR - bow.radius) < 1e-9 && Math.abs(look.bowY - bow.y) < 1e-9)
+  assert.ok(look.bowSide === 1 || look.bowSide === -1)
 })
 
 console.log("ok: " + ran + " tests")

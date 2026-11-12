@@ -40,8 +40,9 @@ length, how it is kept smooth, and how to work on it.
   is. **A really hot day** bends the background, the wallpaper and the sky
   over it, in heat waves that rise off the ground; the windows stay straight.
 - **And now and then:** a rainbow when a shower is falling and the sun is
-  low, on the far side of the sky from it; a ring round the moon through
-  thin high cloud; a shooting star on a clear night.
+  low, arching over the windows from the side of the sky away from it; a
+  ring round the moon through thin high cloud; a shooting star on a clear
+  night.
 - **The weather is not drawn on your windows.** It lands on them, lies on
   them, hangs beside them and runs off them, but what is in a window is
   left as it is: no rain across it, no fog over it. The one thing that

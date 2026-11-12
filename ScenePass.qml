@@ -150,6 +150,9 @@ Item {
       property real thaw: pass.look.thaw
       property real rainbow: pass.look.rainbow
       property real bowX: pass.look.bowX
+      property real bowY: pass.look.bowY
+      property real bowR: pass.look.bowR
+      property real bowSide: pass.look.bowSide
       property real halo: pass.look.halo
       property real rain: pass.look.rain
       property real snow: pass.look.snow
