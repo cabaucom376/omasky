@@ -755,6 +755,25 @@ function skyWash(weather, dayness, twilight, steady) {
   return mix(0.25, 1, v) * mix(1, smoothstep(0, 0.2, v), still)
 }
 
+// Where the rainbow stands: a circle, drawn from its inmost band outward.
+// The desktop fills the middle of the screen, so a bow that only crossed the
+// middle would be lost behind the windows. This one is fitted round them:
+// its crown halfway up the sky above the desktop, and its feet coming down
+// through the middle of the margins beside it, so that it reads as an arch
+// over the windows. It stands on the side away from the sun (`side`: -1 the
+// left half, 1 the right), and the shader thins it out toward the sun's.
+function bowShape(geometry, sunX) {
+  var w = geometry.width, h = geometry.height
+  var margin = geometry.margin > 0 ? geometry.margin : w * 0.11
+  var deck = geometry.deck > 0 ? geometry.deck : h * 0.21
+  var crown = deck * 0.5
+  var reach = w / 2 - margin * 0.5
+  var foot = deck + (h - deck) * 0.55
+  // The circle through (middle ± reach, foot) whose top is at `crown`.
+  var y = (reach * reach + foot * foot - crown * crown) / (2 * (foot - crown))
+  return { x: w / 2, y: y, radius: y - crown, side: sunX > w / 2 ? -1 : 1 }
+}
+
 function sceneUniforms(palette, sky, weather, geometry) {
   var d = sky.dayness
   // How far the hour is switched out of this sky (steadySky).
@@ -803,6 +822,7 @@ function sceneUniforms(palette, sky, weather, geometry) {
   // it stands on the side of the sky away from the sun.
   var rainbow = sunUp ? smoothstep(0.04, 0.3, weather.rain) * (1 - smoothstep(0.5, 0.92, cover))
                         * smoothstep(0.22, 0.55, sky.sun.low) * (1 - weather.fog) * (1 - steady) : 0
+  var bow = bowShape(geometry, sky.sun.x)
   // A ring round the moon wants thin high cloud in front of it and nothing
   // thicker below.
   var halo = !sunUp && !falling ? smoothstep(0.12, 0.4, highCover) * (1 - smoothstep(0.7, 0.95, Math.max(lowCover, midCover)))
@@ -836,7 +856,10 @@ function sceneUniforms(palette, sky, weather, geometry) {
       gust: weather.gust || 0,
       thaw: thaw,
       rainbow: rainbow,
-      bowX: geometry.width - sky.sun.x,
+      bowX: bow.x,
+      bowY: bow.y,
+      bowR: bow.radius,
+      bowSide: bow.side,
       halo: halo,
       bowOuter: toHex(palette.bowOuter),
       bowMiddle: toHex(palette.bowMiddle),
@@ -1402,7 +1425,7 @@ if (typeof module !== "undefined") {
     weatherFromCode: weatherFromCode, LANE_SPEED: LANE_SPEED, heatFor: heatFor,
     parseForecast: parseForecast, parseLocation: parseLocation, forecastUrl: forecastUrl,
     moonPhase: moonPhase, moonPhaseKey: moonPhaseKey, moonGlyph: moonGlyph, solarDay: solarDay,
-    arcPosition: arcPosition, celestial: celestial, sceneUniforms: sceneUniforms,
+    arcPosition: arcPosition, celestial: celestial, sceneUniforms: sceneUniforms, bowShape: bowShape,
     deskPlacement: deskPlacement, placed: placed, deskWindows: deskWindows, bounds: bounds,
     frameMargins: frameMargins, shownWindows: shownWindows, skyWash: skyWash, titleBars: titleBars,
     ledgeStep: ledgeStep, ledgeSlots: ledgeSlots, LEDGES: LEDGES, ICICLE_MOST: ICICLE_MOST,
