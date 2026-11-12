@@ -1,5 +1,9 @@
 {
   "widget.tooltip": "Weather sky · right click for controls",
+  "widget.rainSoon": "Rain in about %1 min",
+  "widget.snowSoon": "Snow in about %1 min",
+  "widget.rainNow": "Rain any minute now",
+  "widget.snowNow": "Snow any minute now",
   "info.preview": "Preview",
   "info.offline": "Weather unavailable",
   "info.sunrise": "Sunrise %1",

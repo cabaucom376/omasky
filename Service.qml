@@ -867,10 +867,11 @@ Item {
   readonly property string glyph: Model.glyphFor(targetWeather, night)
 
   function refresh() {
-    // For the sky, or for the panel open on its own. (Asked of the two
-    // themselves, not of `watched`: this is called from the handler of one
-    // of them changing, before a binding on them has caught up.)
-    if (!(mounted || controlsOpen) || forecastProc.running || geoProc.running) return
+    // For the sky, for the panel open on its own, or for the heads-up on the
+    // bar icon. (Asked of the first two themselves, not of `watched`: this
+    // is called from the handler of one of them changing, before a binding
+    // on them has caught up.)
+    if (!(mounted || controlsOpen || headsUp) || forecastProc.running || geoProc.running) return
     if (!hasLocation) {
       geoProc.running = true
       return
@@ -1109,6 +1110,44 @@ Item {
     // By hand and in a preview too: the sunrise and sunset come with it.
     running: root.watched && root.mode !== "demo"
     onTriggered: root.refresh()
+  }
+
+  // ------------------------------------------------------------ heads-up
+  //
+  // With the sky down the bar icon is all there is of the weather, so it
+  // gives warning: when rain or snow is due to start within the hour it
+  // turns into an umbrella or a snowflake and says how long there is. For
+  // that the weather has to be read while nothing is showing, which it
+  // otherwise is not: every twenty minutes at the most often, and once
+  // shortly after the shell starts. Switched off (the headsUp setting), the
+  // plugin goes back to asking for nothing while nothing is on screen.
+  readonly property bool headsUp: setting("headsUp", true) !== false
+  // {minutes, snow} or null; only from a reading fresh enough to go by.
+  readonly property var soon: headsUp && forecast && wallNow - forecastAt < 45 * Model.MINUTE ? Model.fallSoon(forecast, wallNow) : null
+  readonly property string soonText: !soon ? ""
+    : soon.minutes > 0 ? strings.t(soon.snow ? "widget.snowSoon" : "widget.rainSoon").arg(Commons.I18n.formatNumber(soon.minutes))
+    : strings.t(soon.snow ? "widget.snowNow" : "widget.rainNow")
+  // What the bar icon shows: the weather, or that warning.
+  readonly property string barGlyph: soon ? (soon.snow ? "\ue36f" : "\ue220") : glyph
+
+  Timer {
+    interval: Math.max(root.refreshMinutes, 20) * 60000
+    repeat: true
+    running: root.headsUp && !root.watched
+    onTriggered: root.refresh()
+  }
+  Timer {
+    interval: 15000
+    running: root.headsUp
+    onTriggered: if (!root.watched && root.forecastAt === 0) root.refresh()
+  }
+  // The minute, so that the warning counts down and the icon turns from day
+  // to night; with the sky or the panel up the clock runs by itself.
+  Timer {
+    interval: 60000
+    repeat: true
+    running: root.headsUp && !root.watched
+    onTriggered: root.wallNow = Date.now()
   }
 
   // One early second try, for a network that was not up yet.
@@ -1556,6 +1595,8 @@ Item {
         clock: root.mode === "demo" ? "demo" : root.timelapse ? "timelapse" : (root.pinnedClock >= 0 || (root.mode === "manual" && root.manual.hour >= 0) ? "pinned" : "live"),
         // The hour whose forecast is on show, when the hour is set in live mode.
         forecastFor: root.hourReading ? new Date(root.hourReading.at).toISOString() : null,
+        // The warning on the bar icon: what is about to start falling, or null.
+        soon: root.soon,
         night: root.night,
         // Sunrise and sunset as the sky has them today, in hours.
         daylight: (function() {

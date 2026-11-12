@@ -407,9 +407,24 @@ function parseForecast(raw) {
   }
   hours.sort(function(a, b) { return a.at - b.at })
 
+  // The next two hours a quarter of an hour at a time: when each quarter
+  // ends, what falls in it (millimetres) and what kind of weather it is.
+  var soon = []
+  var quarters = data.minutely_15 && typeof data.minutely_15 === "object" ? data.minutely_15 : {}
+  var qt = Array.isArray(quarters.time) ? quarters.time : []
+  var qp = Array.isArray(quarters.precipitation) ? quarters.precipitation : []
+  var qc = Array.isArray(quarters.weather_code) ? quarters.weather_code : []
+  for (var q = 0; q < qt.length && q < 16; q++) {
+    var quarterAt = number(qt[q], 1e9, 1e11)
+    if (quarterAt === null) continue
+    soon.push({ at: quarterAt * 1000, precip: number(qp[q], 0, 500) || 0, code: number(qc[q], 0, 99) })
+  }
+  soon.sort(function(a, b) { return a.at - b.at })
+
   return {
     code: code,
     hours: hours,
+    soon: soon,
     temperature: number(current.temperature_2m, -100, 70),
     feels: number(current.apparent_temperature, -100, 70),
     humidity: number(current.relative_humidity_2m, 0, 100),
@@ -427,6 +442,34 @@ function parseForecast(raw) {
     sunrise: sunrise,
     sunset: sunset
   }
+}
+
+// Whether a WMO weather code is something falling, and whether that is snow.
+function codeFalls(code) {
+  var c = Number(code)
+  return (c >= 51 && c <= 67) || (c >= 71 && c <= 77) || (c >= 80 && c <= 86) || (c >= 95 && c <= 99)
+}
+function codeSnows(code) {
+  var c = Number(code)
+  return (c >= 71 && c <= 77) || c === 85 || c === 86
+}
+
+// What is about to start falling: {minutes, snow}, or null. It goes by the
+// quarter hours the forecast gives: the first one within the hour in which
+// something falls. `minutes` is how long until that quarter begins, to the
+// nearest five, 0 for any minute now. Null when nothing is on its way, and
+// when it is already coming down: this is a warning of a change.
+function fallSoon(forecast, now) {
+  if (!forecast || !isList(forecast.soon) || codeFalls(forecast.code)) return null
+  for (var i = 0; i < forecast.soon.length; i++) {
+    var quarter = forecast.soon[i]
+    if (quarter.at <= now) continue
+    var begins = quarter.at - 15 * MINUTE
+    if (begins - now > 60 * MINUTE) break
+    if (quarter.precip >= 0.1 || codeFalls(quarter.code))
+      return { minutes: Math.max(0, Math.round((begins - now) / MINUTE / 5) * 5), snow: codeSnows(quarter.code) }
+  }
+  return null
 }
 
 // The reading for an hour: of the hours the forecast gives, the one nearest
@@ -523,6 +566,8 @@ function forecastUrl(latitude, longitude) {
     + ",cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high"
     + ",wind_speed_10m,wind_direction_10m,wind_gusts_10m,visibility"
     + "&past_hours=24&forecast_hours=48"
+    // And the next two hours a quarter at a time, for what is about to fall.
+    + "&minutely_15=precipitation,weather_code&past_minutely_15=0&forecast_minutely_15=8"
     + "&past_days=1&forecast_days=5&timeformat=unixtime&timezone=auto"
 }
 
@@ -1532,6 +1577,7 @@ if (typeof module !== "undefined") {
     steadySky: steadySky, dayMarks: dayMarks, calmWeather: calmWeather, dayEvents: dayEvents,
     forecastDays: forecastDays, placeDay: placeDay, forecastFrom: forecastFrom,
     readingAt: readingAt, hourStrip: hourStrip, stripLength: stripLength,
+    codeFalls: codeFalls, codeSnows: codeSnows, fallSoon: fallSoon,
     geocodeUrl: geocodeUrl, parseGeocoding: parseGeocoding,
     dayLight: dayLight, dayBand: dayBand,
     celsiusToFahrenheit: celsiusToFahrenheit, usesFahrenheit: usesFahrenheit,

@@ -30,6 +30,7 @@
       "infoDetail": false,
       "weather": true,
       "dayNight": true,
+      "headsUp": true,
       "refreshMinutes": 15,
       "unit": "auto"
     },
@@ -92,6 +93,12 @@
         "key": "dayNight",
         "type": "boolean",
         "label": "Show the day and night: sun, moon, stars and the sky's color by the hour",
+        "defaultValue": true
+      },
+      {
+        "key": "headsUp",
+        "type": "boolean",
+        "label": "Warn on the bar icon when rain or snow is due within the hour (reads the weather while the sky is down)",
         "defaultValue": true
       },
       {

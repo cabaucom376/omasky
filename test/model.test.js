@@ -815,4 +815,38 @@ test("the day's ruler gets what falls in each of its hours", () => {
   assert.strictEqual(M.stripLength("x"), 0)
 })
 
+test("the bar icon is warned of what is about to start falling", () => {
+  const now = 1794493800000, q = 900000
+  const reading = (code, falls) => ({ code: code, soon: falls.map((mm, i) => ({ at: now + i * q, precip: mm, code: mm > 0 ? 61 : 2 })) })
+  // Dry now, rain in the quarter that begins in half an hour.
+  assert.deepStrictEqual(M.fallSoon(reading(2, [0, 0, 0, 0.4, 1.2, 0, 0, 0]), now), { minutes: 30, snow: false })
+  // In the very next quarter: any minute.
+  assert.deepStrictEqual(M.fallSoon(reading(2, [0, 0.3, 0, 0, 0, 0, 0, 0]), now), { minutes: 0, snow: false })
+  // Some minutes later it is nearer, to the nearest five.
+  assert.strictEqual(M.fallSoon(reading(2, [0, 0, 0, 0.4, 0, 0, 0, 0]), now + 8 * 60000).minutes, 20)
+  // Nothing on its way, or more than an hour off: nothing to say.
+  assert.strictEqual(M.fallSoon(reading(2, [0, 0, 0, 0, 0, 0, 0, 0]), now), null)
+  assert.strictEqual(M.fallSoon(reading(2, [0, 0, 0, 0, 0, 0, 0, 2]), now), null)
+  // Already raining: it is a warning of a change, not a report.
+  assert.strictEqual(M.fallSoon(reading(63, [1, 1, 1, 1, 1, 1, 1, 1]), now), null)
+  // Snow is told apart by the kind of weather.
+  const snow = { code: 3, soon: [{ at: now + 2 * q, precip: 0.5, code: 73 }] }
+  assert.deepStrictEqual(M.fallSoon(snow, now), { minutes: 15, snow: true })
+  // A code that says it falls counts even where no amount is given.
+  assert.strictEqual(M.fallSoon({ code: 1, soon: [{ at: now + q, precip: 0, code: 80 }] }, now).minutes, 0)
+  assert.strictEqual(M.fallSoon(null, now), null)
+  assert.strictEqual(M.fallSoon({ code: 1 }, now), null)
+  assert.ok(M.codeFalls(51) && M.codeFalls(67) && M.codeFalls(82) && M.codeFalls(95) && !M.codeFalls(3) && !M.codeFalls(45))
+  assert.ok(M.codeSnows(71) && M.codeSnows(86) && !M.codeSnows(61))
+})
+
+test("the forecast asks for the next two hours by the quarter and reads them", () => {
+  assert.ok(/&minutely_15=precipitation,weather_code&past_minutely_15=0&forecast_minutely_15=8/.test(M.forecastUrl(38.72, -9.14)))
+  const f = M.parseForecast(JSON.stringify({ current: { weather_code: 2 },
+    minutely_15: { time: [1794493800, 1794494700, "x", 1794496500], precipitation: [0, 0.3, 1, null], weather_code: [2, 61, 61, 2] } }))
+  assert.deepStrictEqual(f.soon, [
+    { at: 1794493800000, precip: 0, code: 2 }, { at: 1794494700000, precip: 0.3, code: 61 }, { at: 1794496500000, precip: 0, code: 2 }])
+  assert.deepStrictEqual(M.parseForecast(JSON.stringify({ current: { weather_code: 2 } })).soon, [])
+})
+
 console.log("ok: " + ran + " tests")

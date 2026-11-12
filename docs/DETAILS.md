@@ -97,6 +97,21 @@ away.
 Nothing you do in the workspace closes the sky. **The bar icon, or
 `omarchy-shell omasky toggle`, brings the desktop back.**
 
+## The bar icon
+
+The icon in the bar is the weather as it is now, by day or by night. When
+rain or snow is due to start within the hour it turns into an umbrella or a
+snowflake, and its tooltip says how long there is ("Rain in about 20 min").
+It goes by the next two hours of the forecast, a quarter of an hour at a
+time, and it is a warning of a change: once it is coming down the icon is
+simply the weather again.
+
+For that the weather is read while the sky is down, which nothing else
+needs: every twenty minutes at the most often (or less often, if
+`refreshMinutes` is longer), and once shortly after the shell starts. Set
+`headsUp` to `false` to switch the warning off, and with it every request
+made while nothing is on screen.
+
 ## On a key, and in the Omarchy menu
 
 To put the sky on a key, add a line to
