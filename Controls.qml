@@ -677,7 +677,7 @@ Rectangle {
           id: switches
           width: parent.width
           spacing: Style.space(8)
-          readonly property real each: (width - spacing) / 2
+          readonly property real each: (width - spacing * 2) / 3
 
           Tile {
             width: switches.each
@@ -692,6 +692,16 @@ Rectangle {
             text: panel.words.t("panel.dayNight")
             on: panel.service.dayNight
             onPicked: panel.service.setDayNight(!panel.service.dayNight)
+          }
+          // Rain, wind and thunder to be heard as well as seen. Dimmed where
+          // the machine has nothing to play it with.
+          Tile {
+            width: switches.each
+            glyph: panel.service.soundOn ? "\uf028" : "\uf026"
+            text: panel.words.t(panel.service.soundMissing ? "panel.soundMissing" : "panel.sound")
+            on: panel.service.soundOn && !panel.service.soundMissing
+            opacity: panel.service.soundMissing ? 0.5 : 1
+            onPicked: panel.service.setSoundOn(!panel.service.soundOn)
           }
         }
 

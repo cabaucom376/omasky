@@ -30,6 +30,8 @@
       "infoDetail": false,
       "weather": true,
       "dayNight": true,
+      "sound": false,
+      "soundVolume": 0.5,
       "headsUp": true,
       "refreshMinutes": 15,
       "unit": "auto"
@@ -94,6 +96,21 @@
         "type": "boolean",
         "label": "Show the day and night: sun, moon, stars and the sky's color by the hour",
         "defaultValue": true
+      },
+      {
+        "key": "sound",
+        "type": "boolean",
+        "label": "Play rain, wind and thunder while the sky is up",
+        "defaultValue": false
+      },
+      {
+        "key": "soundVolume",
+        "type": "number",
+        "label": "How loud the sound is",
+        "min": 0,
+        "max": 1,
+        "step": 0.05,
+        "defaultValue": 0.5
       },
       {
         "key": "headsUp",

@@ -82,6 +82,8 @@
   "condition.hail": "Hail",
   "panel.weather": "Weather",
   "panel.dayNight": "Day & night",
+  "panel.sound": "Sound",
+  "panel.soundMissing": "No sound here",
   "panel.readout": "Corner info",
   "panel.mode": "Mode",
   "panel.byHand": "Manual",

@@ -1221,6 +1221,33 @@ Item {
     if (!weatherOn) setWeatherOn(true)
     strikeNow = true
   }
+  // Lightning has just struck: what the thunder waits for.
+  signal struck()
+
+  // ---------------------------------------------------------------- sound
+  //
+  // Rain, wind and thunder, as loud as there is of each, while the sky is
+  // up. Off unless asked for. The part that makes it (Sound.qml) is loaded
+  // only then, and apart, because it needs Qt's multimedia module, which
+  // the shell itself does not: where that is missing the sound is, and the
+  // panel says so.
+  readonly property bool soundOn: setting("sound", false) === true
+  readonly property real soundVolume: Model.clamp(Number(setting("soundVolume", 0.5)) || 0, 0, 1)
+  property bool soundMissing: false
+  function setSoundOn(on) { saveSetting("sound", on === true) }
+
+  Loader {
+    id: soundLoader
+    active: root.soundOn && root.mounted && !root.soundMissing
+    source: Qt.resolvedUrl("Sound.qml")
+    onLoaded: item.service = root
+    onStatusChanged: if (status === Loader.Error) root.soundMissing = true
+  }
+  // The files are there but will not play: no sound here either.
+  Connections {
+    target: soundLoader.item
+    function onBrokenChanged() { if (soundLoader.item.broken) root.soundMissing = true }
+  }
 
   FrameAnimation {
     running: root.watched
@@ -1324,6 +1351,7 @@ Item {
       } else if (strikeNow || time >= nextStrike) {
         strikeNow = false
         strikeAge = 0
+        struck()
         boltAt = 0.10 + Math.random() * 0.80
         boltSeed = 1 + Math.random() * 90
         flash = Model.flashAt(0)
@@ -1441,6 +1469,12 @@ Item {
     function weather(state: string): string {
       root.setWeatherOn(root.switched(state, root.weatherOn))
       return root.weatherOn ? "on" : "off"
+    }
+
+    // The sky's sound, rain, wind and thunder: on, off or toggle.
+    function sound(state: string): string {
+      root.setSoundOn(root.switched(state, root.soundOn))
+      return root.soundOn ? (root.soundMissing ? "on, but this machine has no Qt multimedia module to play it" : "on") : "off"
     }
 
     // The hour on its own: on, off or toggle. Sun, moon, stars and the
@@ -1601,6 +1635,9 @@ Item {
         forecastFor: root.hourReading ? new Date(root.hourReading.at).toISOString() : null,
         // The warning on the bar icon: what is about to start falling, or null.
         soon: root.soon,
+        // Whether sound is asked for, and whether this machine can play it.
+        sound: root.soundOn,
+        soundMissing: root.soundMissing,
         night: root.night,
         // Sunrise and sunset as the sky has them today, in hours.
         daylight: (function() {

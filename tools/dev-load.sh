@@ -36,11 +36,12 @@ fi
 mkdir -p "$(dirname "$TARGET")"
 stage=$(mktemp -d "$(dirname "$TARGET")/.omasky.XXXXXX")
 trap 'rm -rf "$stage"' EXIT
-build="build-$(cd "$ROOT" && cat ./*.qml ./*.js manifest.json shaders/*.qsb i18n/*.json | sha1sum | cut -c1-10)"
-mkdir -p "$stage/$build/shaders" "$stage/$build/i18n"
+build="build-$(cd "$ROOT" && cat ./*.qml ./*.js manifest.json shaders/*.qsb i18n/*.json sounds/*.wav | sha1sum | cut -c1-10)"
+mkdir -p "$stage/$build/shaders" "$stage/$build/i18n" "$stage/$build/sounds"
 cp "$ROOT"/*.qml "$ROOT"/*.js "$stage/$build/"
 cp "$ROOT"/shaders/*.qsb "$stage/$build/shaders/"
 cp "$ROOT"/i18n/*.json "$stage/$build/i18n/"
+cp "$ROOT"/sounds/*.wav "$stage/$build/sounds/"
 jq --arg build "$build" '.entryPoints |= map_values($build + "/" + .)' "$ROOT/manifest.json" >"$stage/manifest.json"
 omarchy-plugin-validate "$stage" || fail "the staged plugin did not validate"
 

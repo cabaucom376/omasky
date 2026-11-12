@@ -77,7 +77,9 @@ In the panel:
   sky goes to that hour of today, with the weather forecast for it.
 - **The place** the weather is for. Press it to set a city; Auto goes back
   to wherever you are.
-- **Weather** and **Day & night**, each switched on its own.
+- **Weather** and **Day & night**, each switched on its own, and
+  **Sound**: rain, wind and thunder to go with what you see. Off to begin
+  with.
 - **Corner info**: off, simple, or detailed, which adds how it feels, the
   wind, the humidity and a four-day forecast.
 - **Mode**: live, a demo of a whole day, or manual, with a slider for every
@@ -92,6 +94,7 @@ In the panel:
     omarchy-shell omasky info detailed     # the corner info: off, simple or detailed
     omarchy-shell omasky weather off       # the weather on its own: on, off or toggle
     omarchy-shell omasky daynight off      # the sun, moon and the hour's light: on, off or toggle
+    omarchy-shell omasky sound on          # rain, wind and thunder to be heard: on, off or toggle
     omarchy-shell omasky quality high      # auto, low, medium, high or ultra
     omarchy-shell omasky demo              # a day and a night in a minute and a half; again to stop
     omarchy-shell omasky preview storm     # try a condition: rain, snow, blizzard, fog, hail, heat, ...
@@ -117,6 +120,8 @@ Set on the bar widget, for example `omarchy bar set omasky shrink 0.7 --json`.
 | `weather` | `true` | Clouds, what falls, fog, wind and heat |
 | `dayNight` | `true` | Sun, moon, stars and the sky's color by the hour |
 | `headsUp` | `true` | Warn on the bar icon when rain or snow is due within the hour |
+| `sound` | `false` | Play rain, wind and thunder while the sky is up |
+| `soundVolume` | `0.5` | How loud that is, 0 to 1 |
 | `refreshMinutes` | `15` | How often to ask for the weather while showing |
 | `unit` | `"auto"` | `"metric"` or `"imperial"` to override the locale |
 
