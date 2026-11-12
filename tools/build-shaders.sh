@@ -19,7 +19,7 @@ elif command -v qsb >/dev/null; then
 elif [[ -x /usr/lib/qt6/bin/qsb ]]; then
   qsb=(/usr/lib/qt6/bin/qsb)
 else
-  echo "build-shaders: qsb not found; install it with: omarchy pkg add qt6-shadertools" >&2
+  echo "build-shaders: qsb not found; it is in the qt6-shadertools package" >&2
   exit 1
 fi
 

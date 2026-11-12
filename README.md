@@ -5,7 +5,7 @@
   A plugin for the <a href="https://omarchy.org">Omarchy</a> shell.
 </p>
 
-![Golden hour: the workspace in its frame under a partly cloudy sky, the sun low, the conditions in the corners](docs/dusk.png)
+![Golden hour: the workspace in its frame under a partly cloudy sky, the sun low, the conditions in the corners](preview.png)
 
 Switch it on and your workspace steps into a slightly smaller frame while a
 live sky arrives around it. The windows are your real ones and work as they
@@ -49,8 +49,9 @@ never drawn over what is in them.
 
     omarchy plugin add https://github.com/cabaucom376/omasky --enable
 
-It needs Omarchy 4 or later, on Hyprland. A weather button appears in the
-bar beside the clock.
+It needs Omarchy 4 or later, on Hyprland, and nothing besides: no packages
+to add, no setup script. A weather button appears in the bar beside the
+clock.
 
     omarchy plugin update omasky && omarchy restart shell    # update
     omarchy plugin remove omasky                              # remove

@@ -245,8 +245,8 @@ The repository is the plugin: `manifest.json` and the code are at the top,
 which is what `omarchy plugin add` expects. `tools/` and `test/` are for
 working on it and are not loaded by the shell.
 
-    tools/dev-install.sh          # put this checkout into the running shell
-    tools/build-shaders.sh        # compile shaders/*.frag (needs qsb: omarchy pkg add qt6-shadertools)
+    tools/dev-load.sh             # put this checkout into the running shell
+    tools/build-shaders.sh        # compile shaders/*.frag (needs qsb, from the qt6-shadertools package)
     node test/model.test.js       # the scene's arithmetic
     tools/load.sh                 # load the plugin on its own, unseen, and print anything it complains about
     tools/sheet.sh out.png 2 "--weather storm --hour 16 --flash 0.9" "--weather snow --hour 21 --windows two"
@@ -254,11 +254,11 @@ working on it and are not loaded by the shell.
     tools/icon.py icon docs/icon.svg icon.ppm # draw the icon again, or `social` for the banner (see the top of the file)
     omarchy plugin validate .     # what `omarchy plugin add` will check
 
-`tools/dev-install.sh` is for while the code is changing. It puts the code
+`tools/dev-load.sh` is for while the code is changing. It puts the code
 in a folder named for its own contents and points the manifest there, so
 every change is read fresh: the shell keeps compiled QML by file path for as
 long as it runs, and code written over the same paths would go on running
-the old version. `tools/dev-uninstall.sh` takes it out again. The compiled
+the old version. `tools/dev-unload.sh` takes it out again. The compiled
 shaders (`shaders/*.qsb`) are kept in the repository, because nobody adding
 the plugin has the shader baker; rebuild and commit them when a `.frag`
 changes.

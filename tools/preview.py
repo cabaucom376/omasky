@@ -78,7 +78,7 @@ def qsb_command():
         if any(os.access(os.path.join(d, candidate), os.X_OK) for d in os.environ.get("PATH", "").split(":")) \
                 or os.access(candidate, os.X_OK):
             return [candidate], dict(os.environ)
-    fail("qsb not found (omarchy pkg add qt6-shadertools)")
+    fail("qsb not found (it is in the qt6-shadertools package)")
 
 
 def glsl_es_source(name):
