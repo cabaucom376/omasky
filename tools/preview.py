@@ -3,6 +3,7 @@
 
 Usage: preview.py <scene.json> <out.png>
        preview.py --grid <columns> <out.png> <scene.json>...
+       preview.py --count <shader>...
 
 The second form renders every scene and tiles them at half size into one
 contact sheet, for comparing conditions side by side.
@@ -378,7 +379,26 @@ def load(path):
         return json.load(source)
 
 
+def count(names):
+    """Compile and link shaders and draw nothing: for measuring them.
+
+    Run with VIRGL_DEBUG=tgsi on a virtual machine's GPU, Mesa prints the
+    program it would hand the host for each one, an instruction to a line,
+    and how many there are is what decides how long the host takes to build
+    it (see tools/shader-size.sh). Nothing is drawn, so nothing is built
+    on the host and the screen does not stall."""
+    gpu = Gpu(64, 64)
+    for name in names:
+        sys.stderr.write(f"=== {name}\n")
+        sys.stderr.flush()
+        gpu.program(name)
+        gpu.gl.glFinish()
+    return 0
+
+
 def main(argv):
+    if len(argv) >= 2 and argv[0] == "--count":
+        return count(argv[1:])
     if len(argv) >= 4 and argv[0] == "--grid":
         columns, out, scenes = int(argv[1]), argv[2], [load(path) for path in argv[3:]]
         width, height = scenes[0]["size"]
